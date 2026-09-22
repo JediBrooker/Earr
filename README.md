@@ -217,6 +217,11 @@ Head to the [environment variables](https://github.com/JediBrooker/Earr/wiki/Env
 
 ---
 
+# Deployment
+
+Building, shipping and configuring this fork, including the storage layout the
+library organizer needs: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 # Contributing
 
 Please read the [contribution guidelines](?tab=contributing-ov-file) before contributing.
