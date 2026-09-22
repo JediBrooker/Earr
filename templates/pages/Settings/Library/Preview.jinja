@@ -1,0 +1,21 @@
+{#def
+    preview: list[tuple[str, str]],
+    error: str | None = None,
+#}
+
+<div id="library-preview" class="flex flex-col gap-1">
+    {% if error %}
+        <p class="text-xs text-error">
+            {{ error }}
+        </p>
+    {% endif %}
+    <p class="text-xs opacity-60">
+        Preview
+    </p>
+    {% for label, path in preview %}
+        <p class="font-mono text-xs break-all">
+            <span class="opacity-60">{{ label }}:</span>
+            {{ path }}
+        </p>
+    {% endfor %}
+</div>

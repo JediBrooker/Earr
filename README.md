@@ -20,6 +20,7 @@ If you've heard of Overseer, Ombi, or Jellyseer; this is in the similar vein, <i
   - [Basic Usage](#basic-usage)
     - [Auto download](#auto-download)
     - [Audiobookshelf Integration](#audiobookshelf-integration)
+    - [Organizing Downloads](#organizing-downloads)
     - [OpenID Connect](#openid-connect)
       - [Getting locked out](#getting-locked-out)
     - [Environment Variables](#environment-variables)
@@ -41,6 +42,7 @@ It is not intended as a full replacement for Readarr/Chaptarr, but instead inten
 - Easy user management. Only three assignable groups, made to get out of your way.
 - Automatic downloading of requests. Integrate Prowlarr to use all your existing indexer settings and download clients.
 - Send notifications to your favorite notification service (apprise, gotify, discord, ntfy, etc.).
+- Optionally copy, move or hardlink finished downloads into a folder structure of your choosing, e.g. `/Author/Series/Book`.
 - Single image deployment. You can deploy and create your first requests in under 5 minutes.
 - SQLite and Postgres support!
 - Lightweight website. No bulky javascript files, allowing you to use the website even on low bandwidth.
@@ -48,7 +50,7 @@ It is not intended as a full replacement for Readarr/Chaptarr, but instead inten
 
 ## Out of Scope Features
 
-- AudioBookRequest does **not** handle moving, renaming, nor editing metadata after downloads. Instead, ABR supports multiple REST API endpoints that allow for easy interoptability with scripts and other apps.
+- AudioBookRequest does **not** rename files nor edit metadata after downloads. Placing finished downloads into a folder structure is supported and opt-in, see [Organizing Downloads](#organizing-downloads), but everything beyond that is left to other tools. ABR also supports multiple REST API endpoints that allow for easy interoptability with scripts and other apps.
   - Combinations:
     - _Know of or have an app or script that works with ABR? Open an issue and I'll add it here or to the docs._
   - Alternatives:
@@ -113,6 +115,79 @@ Notes:
 
 - ABR searches ABS by ASIN and by “title + first author” to detect existing books; this is a best-effort match and may not catch every case depending on your metadata.
 - ABS is automatically asked to scan after successful downloads are marked in ABR. ABS typically auto-detects updates, but this helps pick up changes sooner.
+
+### Organizing Downloads
+
+ABR can place finished downloads into a folder structure of your choosing. This is off by default.
+
+Prowlarr hands grabs to your download client and never reports back, so ABR watches the folder your
+download client writes finished downloads to and matches new items there against the releases it
+grabbed. Both folders therefore have to be mounted into the ABR container.
+
+```yaml
+services:
+  audiobookrequest:
+    image: markbeep/audiobookrequest:1
+    volumes:
+      - ./config:/config
+      # the same paths your download client uses, so hardlinks work
+      - /mnt/data/downloads:/downloads
+      - /mnt/data/audiobooks:/audiobooks
+```
+
+Head to `Settings>Library` and configure:
+
+1. **Organize downloads** to turn the feature on.
+2. **Mode**:
+   - `hardlink` keeps a single copy on disk and lets torrents keep seeding. Both folders have to be on
+     the same filesystem, which for Docker means the same volume mount, not two separate mounts.
+   - `copy` uses twice the space but works everywhere.
+   - `move` frees up the download folder but breaks seeding.
+3. **Completed downloads folder** and **Library folder**, as seen from inside the container.
+4. **Folder structure**, see below.
+
+#### Folder structure
+
+The folder structure is a `/` separated template. Placeholders are replaced with the metadata of
+the book:
+
+| Placeholder | Value |
+| --- | --- |
+| `{author}` | First author |
+| `{authors}` | All authors, comma separated |
+| `{title}` | Book title |
+| `{subtitle}` | Book subtitle |
+| `{series}` | Series name, empty if the book is standalone |
+| `{series_position}` | Position within the series, e.g. `1` or `2.5` |
+| `{narrator}` | First narrator |
+| `{narrators}` | All narrators, comma separated |
+| `{year}` | Release year |
+| `{asin}` | Audible ASIN, or the request id for manual requests |
+
+Two rules keep templates short:
+
+- A folder that would end up empty is left out, so `{author}/{series}/{title}` becomes
+  `Andy Weir/The Martian` for a book that is not part of a series.
+- Text in square brackets disappears as a whole when a placeholder inside it is empty, which makes
+  `[{series_position} - ]{title}` render as just the title for standalone books.
+
+| Template | Series book | Standalone book |
+| --- | --- | --- |
+| `{author}/{title}` | `Brandon Sanderson/The Way of Kings` | `Andy Weir/The Martian` |
+| `{author}/{series}/{title}` | `Brandon Sanderson/The Stormlight Archive/The Way of Kings` | `Andy Weir/The Martian` |
+| `{author}/{series}/[{series_position} - ]{title}` | `Brandon Sanderson/The Stormlight Archive/1 - The Way of Kings` | `Andy Weir/The Martian` |
+| `{author}/{title} ({year})` | `Brandon Sanderson/The Way of Kings (2010)` | `Andy Weir/The Martian (2013)` |
+
+The settings page previews both cases while you type. File names inside the folder are left alone.
+
+Notes:
+
+- Audible does not always expose series information. The series position is read from the subtitle
+  and may be missing for some books. Manual requests never have a series.
+- A download is only picked up once it stopped changing and has no partial files left.
+- Existing files are never replaced unless **Overwrite existing files** is turned on.
+- If a download is not picked up because the download client renamed it, lower the **Match
+  threshold**, or use `POST /api/library/import` with the ASIN and the path to organize it by hand.
 
 ### OpenID Connect
 

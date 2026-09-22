@@ -72,6 +72,8 @@ class Audiobook(BaseSQLModel, table=True):
     cover_image: str | None
     release_date: datetime
     runtime_length_min: int
+    series: str | None = None
+    series_position: str | None = None
     updated_at: datetime = Field(
         default_factory=datetime.now,
         sa_column=Column(
@@ -255,6 +257,62 @@ class Notification(BaseSQLModel, table=True):
     @property
     def serialized_headers(self):
         return json.dumps(self.headers)
+
+
+class OrganizeModeEnum(str, Enum):
+    """How a finished download is placed into the library."""
+
+    hardlink = "hardlink"
+    copy = "copy"
+    move = "move"
+
+
+class LibraryImportStatusEnum(str, Enum):
+    pending = "pending"
+    imported = "imported"
+    failed = "failed"
+    expired = "expired"
+
+
+class LibraryImport(BaseSQLModel, table=True):
+    """A finished grab that should be placed into the library folder structure.
+
+    A row is created whenever a download is handed to Prowlarr. The library
+    watcher later matches `release_title` against the directories inside the
+    completed downloads folder to find the actual files.
+    """
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    asin_or_uuid: str
+    """ASIN of an Audiobook or the UUID of a ManualBookRequest."""
+    book_title: str
+    release_title: str
+    """Title of the grabbed source. Download clients usually name the folder after it."""
+    status: LibraryImportStatusEnum = Field(
+        default=LibraryImportStatusEnum.pending,
+        index=True,
+        sa_column_kwargs={"server_default": "pending"},
+    )
+    source_path: str | None = None
+    target_path: str | None = None
+    error: str | None = None
+    created_at: datetime = Field(
+        default_factory=datetime.now,
+        sa_column=Column(
+            server_default=func.now(),
+            type_=DateTime,
+            nullable=False,
+        ),
+    )
+    updated_at: datetime = Field(
+        default_factory=datetime.now,
+        sa_column=Column(
+            onupdate=func.now(),
+            server_default=func.now(),
+            type_=DateTime,
+            nullable=False,
+        ),
+    )
 
 
 class APIKeyResponse(BaseModel):

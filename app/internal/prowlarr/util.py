@@ -79,6 +79,22 @@ prowlarr_source_cache = SimpleCache[list[ProwlarrSource], str]()
 prowlarr_indexer_cache = SimpleCache[Indexer, str]()
 
 
+def find_cached_source(
+    session: Session, book_title: str, guid: str
+) -> ProwlarrSource | None:
+    """Looks a grabbed source back up in the search cache.
+
+    Downloads started from the sources page only carry a guid, but the release
+    title is what the download client names the folder after.
+    """
+    sources = prowlarr_source_cache.get(
+        prowlarr_config.get_source_ttl(session), book_title
+    )
+    if not sources:
+        return None
+    return next((s for s in sources if s.guid == guid), None)
+
+
 def flush_prowlarr_cache():
     logger.info("Flushing prowlarr caches")
     prowlarr_source_cache.flush()

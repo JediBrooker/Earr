@@ -1,0 +1,63 @@
+{#def
+    imports: list[LibraryImport],
+#}
+
+<div class="flex flex-col gap-2">
+    <h3 class="text-base">
+        Recent downloads
+    </h3>
+    {% if not imports %}
+        <p class="text-xs opacity-60">
+            Nothing here yet. Downloads started while the organizer is enabled show up in this list.
+        </p>
+    {% else %}
+        <div class="overflow-x-auto">
+            <table class="table table-xs">
+                <thead>
+                    <tr>
+                        <th>Book</th>
+                        <th>Status</th>
+                        <th>Destination</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in imports %}
+                        <tr>
+                            <td class="align-top">
+                                <p>
+                                    {{ entry.book_title }}
+                                </p>
+                                <p class="text-xs opacity-60 break-all">
+                                    {{ entry.release_title }}
+                                </p>
+                            </td>
+                            <td class="align-top">
+                                {% if entry.status.value == "imported" %}
+                                    <span class="badge badge-sm badge-success">organized</span>
+                                {% elif entry.status.value == "pending" %}
+                                    <span class="badge badge-sm badge-ghost">waiting</span>
+                                {% elif entry.status.value == "expired" %}
+                                    <span class="badge badge-sm badge-warning">not found</span>
+                                {% else %}
+                                    <span class="badge badge-sm badge-error">failed</span>
+                                {% endif %}
+                            </td>
+                            <td class="align-top">
+                                {% if entry.target_path %}
+                                    <p class="font-mono text-xs break-all">
+                                        {{ entry.target_path }}
+                                    </p>
+                                {% endif %}
+                                {% if entry.error %}
+                                    <p class="text-xs text-error break-all">
+                                        {{ entry.error }}
+                                    </p>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>

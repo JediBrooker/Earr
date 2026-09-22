@@ -1,3 +1,4 @@
+import re
 from abc import ABCMeta, abstractmethod
 from datetime import datetime
 from typing import Literal
@@ -45,6 +46,23 @@ def get_region_from_settings() -> audible_region_type:
     return region
 
 
+_SERIES_POSITION = re.compile(
+    r"\b(?:book|volume|vol\.?|part|#)\s*(\d+(?:\.\d+)?)\b", re.IGNORECASE
+)
+
+
+def _extract_series_position(subtitle: str | None) -> str | None:
+    """Best effort read of the position within a series.
+
+    The unauthenticated Audible API does not expose it, but subtitles are
+    usually formatted like "The Stormlight Archive, Book 1".
+    """
+    if not subtitle:
+        return None
+    match = _SERIES_POSITION.search(subtitle)
+    return match.group(1) if match else None
+
+
 class AudibleProduct(BaseModel):
     class _Author(BaseModel):
         name: str
@@ -57,6 +75,8 @@ class AudibleProduct(BaseModel):
     release_date: str
     title: str
     subtitle: str | None = None
+    publication_name: str | None = None
+    """Audible puts the series name here for books that belong to one."""
 
     def to_audiobook(self) -> Audiobook:
         cover_image = self.product_images.get("500")
@@ -74,6 +94,8 @@ class AudibleProduct(BaseModel):
             cover_image=cover_image,
             release_date=datetime.fromisoformat(self.release_date),
             runtime_length_min=self.runtime_length_min,
+            series=self.publication_name,
+            series_position=_extract_series_position(self.subtitle),
         )
 
 

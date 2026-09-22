@@ -13,6 +13,7 @@ from sqlmodel import Session, select
 from torf import BdecodeError, MetainfoError, ReadError, Torrent
 
 from app.internal.indexers.abstract import SessionContainer
+from app.internal.library.tracking import record_grab
 from app.internal.models import (
     Audiobook,
     EventEnum,
@@ -28,6 +29,7 @@ from app.internal.notifications import (
 )
 from app.internal.prowlarr.source_metadata import edit_source_metadata
 from app.internal.prowlarr.util import (
+    find_cached_source,
     prowlarr_config,
     prowlarr_indexer_cache,
     prowlarr_source_cache,
@@ -56,6 +58,19 @@ async def _get_torrent_info_hash(
                 download_url=download_url,
                 error=str(e),
             )
+
+
+def _release_title(
+    session: Session,
+    book: Audiobook | ManualBookRequest,
+    guid: str,
+    prowlarr_source: ProwlarrSource | None,
+) -> str | None:
+    """The name the download client most likely gives the finished download."""
+    if prowlarr_source:
+        return prowlarr_source.title
+    cached = find_cached_source(session, book.title, guid)
+    return cached.title if cached else None
 
 
 async def start_download(
@@ -140,6 +155,12 @@ async def start_download(
             manual_book_request.downloaded = True
             session.add(manual_book_request)
             session.commit()
+            _ = record_grab(
+                session,
+                manual_book_request,
+                str(manual_book_request.id),
+                _release_title(session, manual_book_request, guid, prowlarr_source),
+            )
             await send_all_manual_notifications(
                 EventEnum.on_successful_download,
                 manual_book_request,
@@ -153,6 +174,14 @@ async def start_download(
                 b.downloaded = True
                 session.add(b)
             session.commit()
+
+            if same_books and asin_or_uuid:
+                _ = record_grab(
+                    session,
+                    same_books[0],
+                    asin_or_uuid,
+                    _release_title(session, same_books[0], guid, prowlarr_source),
+                )
 
             await send_all_notifications(
                 EventEnum.on_successful_download,

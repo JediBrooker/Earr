@@ -1,0 +1,216 @@
+{#def
+    user: DetailedUser,
+    settings: LibrarySettings,
+    modes: list[OrganizeModeEnum],
+    tokens: dict[str, str],
+    examples: list[str],
+    preview: list[tuple[str, str]],
+    imports: list[LibraryImport],
+#}
+
+<SettingsLayout user={{ user }} page="library" title="Settings - Library">
+
+<script>
+    const applyLibraryExample = (template) => {
+        const input = document.getElementById("folder-template");
+        input.value = template;
+        input.dispatchEvent(new Event("keyup", {
+            bubbles: true
+        }));
+    };
+</script>
+
+<div class="flex flex-col gap-2">
+    <h2 class="text-lg">
+        Library
+    </h2>
+    <p class="text-xs opacity-60">
+        Places finished downloads into a folder structure of your choosing. AudioBookRequest scans the
+        completed downloads folder and matches new downloads against the releases it grabbed, so both
+        folders have to be reachable from inside the container.
+    </p>
+
+    <form class="flex flex-col gap-2"
+          hx-put="{{ base_url }}/settings/library/hx-settings"
+          hx-disabled-elt="#library-save-button">
+        <div class="w-full flex items-center justify-between gap-2 border-t pt-4 border-base-200">
+            <label for="library-enabled">
+                Organize downloads
+            </label>
+            <input id="library-enabled"
+                   name="enabled"
+                   type="checkbox"
+                   class="checkbox"
+                   {% if settings.enabled %}checked{% endif %} />
+        </div>
+
+        <label for="library-mode" class="pt-2">
+            Mode
+        </label>
+        <select id="library-mode" name="mode" class="select w-full">
+            {% for mode in modes %}
+                <option value="{{ mode.value }}"
+                        {% if settings.mode.value==mode.value %}selected{% endif %}>
+                    {{ mode.value }}
+                </option>
+            {% endfor %}
+        </select>
+        <p class="text-xs opacity-60">
+            <span class="font-bold">hardlink</span> keeps a single copy on disk and lets torrents keep seeding,
+            but only works when both folders are on the same filesystem.
+            <span class="font-bold">copy</span> uses twice the space and works everywhere.
+            <span class="font-bold">move</span> frees up the download folder but breaks seeding.
+        </p>
+
+        <label for="library-download-dir" class="pt-2">
+            Completed downloads folder
+        </label>
+        <input id="library-download-dir"
+               name="download_dir"
+               type="text"
+               value="{{ settings.download_dir }}"
+               placeholder="/downloads/complete"
+               class="input w-full" />
+        <p class="text-xs opacity-60">
+            Where your download client puts finished downloads, as seen from AudioBookRequest.
+        </p>
+
+        <label for="library-root-dir" class="pt-2">
+            Library folder
+        </label>
+        <input id="library-root-dir"
+               name="root_dir"
+               type="text"
+               value="{{ settings.root_dir }}"
+               placeholder="/audiobooks"
+               class="input w-full" />
+        <p class="text-xs opacity-60">
+            The root of your audiobook library. The folder structure below is created inside it.
+        </p>
+
+        <label for="folder-template" class="pt-2">
+            Folder structure
+        </label>
+        <input id="folder-template"
+               name="folder_template"
+               type="text"
+               value="{{ settings.folder_template }}"
+               placeholder="{author}/{series}/{title}"
+               class="input w-full font-mono"
+               hx-post="{{ base_url }}/settings/library/hx-preview"
+               hx-trigger="keyup changed delay:300ms"
+               hx-target="#library-preview"
+               hx-swap="outerHTML" />
+
+        <Settings.Library.Preview preview={{ preview }} />
+
+        <div class="flex flex-col gap-1 pt-2">
+            <p class="text-xs opacity-60">
+                Examples, click to use one:
+            </p>
+            <div class="flex flex-wrap gap-1">
+                {% for example in examples %}
+                    <button type="button"
+                            class="btn btn-xs font-mono"
+                            onclick="applyLibraryExample({{ example | toJSstring }})">
+                        {{ example }}
+                    </button>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="collapse collapse-arrow bg-base-200 mt-2">
+            <input type="checkbox" />
+            <div class="collapse-title text-sm">
+                Available placeholders
+            </div>
+            <div class="collapse-content">
+                <table class="table table-xs">
+                    <tbody>
+                        {% for name, description in tokens.items() %}
+                            <tr>
+                                <td class="font-mono whitespace-nowrap align-top">
+                                    {{ "{" }}{{ name }}{{ "}" }}
+                                </td>
+                                <td>
+                                    {{ description }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <p class="text-xs opacity-60 pt-2">
+                    A folder that would end up empty is left out, so
+                    <span class="font-mono">{{ "{" }}author{{ "}" }}/{{ "{" }}series{{ "}" }}/{{ "{" }}title{{ "}" }}</span>
+                    becomes <span class="font-mono">Author/Title</span> for a book that is not part of a series.
+                </p>
+                <p class="text-xs opacity-60 pt-1">
+                    Text in square brackets disappears as a whole when a placeholder inside it is empty, which makes
+                    <span class="font-mono">[{{ "{" }}series_position{{ "}" }} - ]{{ "{" }}title{{ "}" }}</span>
+                    render as just the title for standalone books.
+                </p>
+                <p class="text-xs opacity-60 pt-1">
+                    <span class="font-bold">Note:</span> Audible does not always expose series information. The series
+                    position is read from the subtitle and may be missing for some books. Manual requests never have a series.
+                </p>
+            </div>
+        </div>
+
+        <label for="library-scan-interval" class="pt-4">
+            Scan interval <span class="text-xs">(seconds)</span>
+        </label>
+        <input id="library-scan-interval"
+               name="scan_interval"
+               type="number"
+               min="30"
+               value="{{ settings.scan_interval }}"
+               class="input w-full" />
+
+        <label for="library-match-threshold" class="pt-2">
+            Match threshold <span class="text-xs">(0-100)</span>
+        </label>
+        <input id="library-match-threshold"
+               name="match_threshold"
+               type="number"
+               min="0"
+               max="100"
+               value="{{ settings.match_threshold }}"
+               class="input w-full" />
+        <p class="text-xs opacity-60">
+            How closely the name of a finished download has to match the release that was grabbed. Lower it if
+            downloads are not being picked up, raise it if the wrong ones are.
+        </p>
+
+        <div class="w-full flex items-center justify-between gap-2 pt-4">
+            <label for="library-overwrite">
+                Overwrite existing files
+            </label>
+            <input id="library-overwrite"
+                   name="overwrite"
+                   type="checkbox"
+                   class="checkbox"
+                   {% if settings.overwrite %}checked{% endif %} />
+        </div>
+        <p class="text-xs opacity-60">
+            Off by default, so an upgraded release never replaces what is already in your library.
+        </p>
+
+        <button id="library-save-button" class="btn btn-primary mt-4">
+            Save
+        </button>
+    </form>
+
+    <hr class="my-4 border-base-200" />
+
+    <div class="flex flex-col gap-2">
+        <Settings.Library.Imports imports={{ imports }} />
+        <button type="button"
+                class="btn btn-sm self-start"
+                hx-post="{{ base_url }}/settings/library/hx-scan"
+                hx-disabled-elt="this">
+            Scan now
+        </button>
+    </div>
+</div>
+
+</SettingsLayout>
