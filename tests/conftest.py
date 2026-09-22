@@ -19,6 +19,37 @@ import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
+# app.main queries the database while it is being imported, so the real engine
+# needs the schema even though every test talks to its own in-memory database.
+# The models have to be imported first or SQLModel.metadata is still empty.
+import app.internal.models  # noqa: F401  pyright: ignore[reportUnusedImport]
+from app.util.db import engine as _real_engine
+
+SQLModel.metadata.create_all(_real_engine)
+
+
+def _seed_real_database() -> None:
+    """The redirect-to-init middleware calls get_session() directly rather than
+    through Depends, so it reads the real database and cannot be overridden. It
+    sends every GET to /init while no user exists, so one has to be there."""
+    from app.internal.models import GroupEnum as _Group
+    from app.internal.models import User as _User
+
+    with Session(_real_engine) as s:
+        if s.get(_User, "test-bootstrap") is None:
+            s.add(
+                _User(
+                    username="test-bootstrap",
+                    password="unused",
+                    group=_Group.admin,
+                    root=True,
+                )
+            )
+            s.commit()
+
+
+_seed_real_database()
+
 from app.internal.audiobookshelf.config import abs_config
 from app.internal.library.config import library_config
 from app.internal.models import Audiobook, ManualBookRequest
@@ -27,6 +58,7 @@ from app.internal.prowlarr.util import (
     prowlarr_indexer_cache,
     prowlarr_source_cache,
 )
+from app.internal.models import APIKey, GroupEnum, User
 from app.internal.ranking.quality import quality_config
 
 _CONFIGS = (library_config, prowlarr_config, abs_config, quality_config)
@@ -123,3 +155,45 @@ def manual_request(**overrides: object) -> ManualBookRequest:
         "publish_date": "2021-06-02",
     }
     return ManualBookRequest(**(defaults | overrides))  # pyright: ignore[reportArgumentType]
+
+
+# --- HTTP layer -------------------------------------------------------------
+
+
+@pytest.fixture
+def client(session: Session) -> Iterator["TestClient"]:
+    """A test client wired to the isolated database.
+
+    The auth classes are instantiated per route, so they cannot be overridden;
+    requests authenticate with a real API key instead, which exercises the
+    actual auth path rather than bypassing it.
+    """
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+    from app.util.db import get_session
+
+    app.dependency_overrides[get_session] = lambda: session
+    # deliberately not used as a context manager: that would run the lifespans
+    # and start the background schedulers for the duration of the test
+    yield TestClient(app)
+    app.dependency_overrides.clear()
+
+
+def api_key_for(session: Session, group: GroupEnum, username: str | None = None) -> str:
+    """Creates a user in the given group and returns a usable bearer token."""
+    from app.internal.auth.authentication import create_api_key
+
+    username = username or f"{group.value}-user"
+    user = User(username=username, password="unused", group=group, root=False)
+    session.add(user)
+    session.commit()
+
+    api_key, private_key = create_api_key(user, "tests")
+    session.add(api_key)
+    session.commit()
+    return private_key
+
+
+def auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
