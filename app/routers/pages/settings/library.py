@@ -71,6 +71,7 @@ def update_library(
     admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
     enabled: Annotated[bool, Form()] = False,
     overwrite: Annotated[bool, Form()] = False,
+    write_metadata: Annotated[bool, Form()] = False,
 ):
     try:
         api_update_library_settings(
@@ -83,6 +84,7 @@ def update_library(
                 scan_interval=scan_interval,
                 match_threshold=match_threshold,
                 overwrite=overwrite,
+                write_metadata=write_metadata,
             ),
             session,
             admin_user,

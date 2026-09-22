@@ -17,6 +17,7 @@ from sqlmodel import Session, col, select
 from app.internal.audiobookshelf.client import background_abs_trigger_scan
 from app.internal.audiobookshelf.config import abs_config
 from app.internal.library.config import DEFAULT_PENDING_TTL_DAYS, library_config
+from app.internal.library.metadata import write_metadata
 from app.internal.library.organizer import (
     OrganizeError,
     has_incomplete_files,
@@ -156,6 +157,9 @@ def import_single(session: Session, entry: LibraryImport, source: Path) -> None:
         session.add(entry)
         session.commit()
         return
+
+    if library_config.get_write_metadata(session):
+        _ = write_metadata(target_dir, book, library_config.get_overwrite(session))
 
     entry.status = LibraryImportStatusEnum.imported
     entry.target_path = str(target_dir)

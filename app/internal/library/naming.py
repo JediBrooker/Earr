@@ -9,6 +9,9 @@ needing conditionals:
 - Text wrapped in square brackets is optional and disappears as a whole as soon
   as one of the tokens inside it is empty, which makes
   ``[{series_position} - ]{title}`` render as just the title for standalone books.
+- A ``|`` inside those brackets separates a fallback, so
+  ``[{series} #{series_position}|{title}]`` names the folder after the series for
+  a series book and after the title for a standalone one.
 """
 
 import re
@@ -41,6 +44,7 @@ TEMPLATE_EXAMPLES: list[str] = [
     "{author}/{title}",
     "{author}/{series}/{title}",
     "{author}/{series}/[{series_position} - ]{title}",
+    "{author}/[{series} #{series_position}|{title}]",
     "{author}/{title} ({year})",
     "{series}/{author} - {title}",
 ]
@@ -183,6 +187,13 @@ def validate_template(template: str) -> None:
             "Folder structure needs at least one placeholder, e.g. {title}"
         )
 
+    for group in cast(list[str], _OPTIONAL_PATTERN.findall(template)):
+        if group.count("|") > 1:
+            raise TemplateError(
+                "An optional group can only have one '|' fallback, e.g. "
+                + "[{series}|{title}]"
+            )
+
     if template.startswith("/"):
         raise TemplateError(
             "Folder structure is relative to the library folder and cannot start with '/'"
@@ -214,9 +225,10 @@ def render_template(
 
     def replace_optional(match: re.Match[str]) -> str:
         group = match.group(1)
-        if any(not safe.get(name) for name in _tokens_in(group)):
-            return ""
-        return _TOKEN_PATTERN.sub(replace_token, group)
+        wanted, _, fallback = group.partition("|")
+        if any(not safe.get(name) for name in _tokens_in(wanted)):
+            wanted = fallback
+        return _TOKEN_PATTERN.sub(replace_token, wanted)
 
     rendered = _OPTIONAL_PATTERN.sub(replace_optional, template)
     rendered = _TOKEN_PATTERN.sub(replace_token, rendered)

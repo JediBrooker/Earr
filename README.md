@@ -170,6 +170,8 @@ Two rules keep templates short:
   `Andy Weir/The Martian` for a book that is not part of a series.
 - Text in square brackets disappears as a whole when a placeholder inside it is empty, which makes
   `[{series_position} - ]{title}` render as just the title for standalone books.
+- A `|` inside those brackets adds a fallback, so `[{series} #{series_position}|{title}]` names the
+  folder after the series for a series book and after the title for a standalone one.
 
 | Template | Series book | Standalone book |
 | --- | --- | --- |
@@ -177,8 +179,18 @@ Two rules keep templates short:
 | `{author}/{series}/{title}` | `Brandon Sanderson/The Stormlight Archive/The Way of Kings` | `Andy Weir/The Martian` |
 | `{author}/{series}/[{series_position} - ]{title}` | `Brandon Sanderson/The Stormlight Archive/1 - The Way of Kings` | `Andy Weir/The Martian` |
 | `{author}/{title} ({year})` | `Brandon Sanderson/The Way of Kings (2010)` | `Andy Weir/The Martian (2013)` |
+| `{author}/[{series} #{series_position}\|{title}]` | `Brandon Sanderson/The Stormlight Archive #1` | `Andy Weir/The Martian` |
 
 The settings page previews both cases while you type. File names inside the folder are left alone.
+
+#### Metadata
+
+With **Write metadata.json** enabled (the default), the title, subtitle, authors, narrators, series
+and ASIN are written into the organized folder as a `metadata.json`. Audiobookshelf reads that file
+and prefers it over what it can infer from file and folder names, so a release with messy file names
+still ends up with the right metadata. Only fields ABR actually knows are written, and an existing
+`metadata.json` is left alone unless **Overwrite existing files** is on, so anything corrected by
+hand in ABS survives a re-import.
 
 Notes:
 

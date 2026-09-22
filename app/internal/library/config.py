@@ -26,6 +26,7 @@ LibraryConfigKey = Literal[
     "library_scan_interval",
     "library_match_threshold",
     "library_overwrite",
+    "library_write_metadata",
 ]
 
 
@@ -101,6 +102,13 @@ class LibraryConfig(StringConfigCache[LibraryConfigKey]):
 
     def set_match_threshold(self, session: Session, threshold: int):
         self.set_int(session, "library_match_threshold", min(100, max(0, threshold)))
+
+    def get_write_metadata(self, session: Session) -> bool:
+        value = self.get_bool(session, "library_write_metadata")
+        return True if value is None else value
+
+    def set_write_metadata(self, session: Session, enabled: bool):
+        self.set_bool(session, "library_write_metadata", enabled)
 
     def get_overwrite(self, session: Session) -> bool:
         return bool(self.get_bool(session, "library_overwrite") or False)

@@ -28,6 +28,7 @@ class LibrarySettings(BaseModel):
     scan_interval: int
     match_threshold: int
     overwrite: bool
+    write_metadata: bool
 
 
 def read_settings(session: Session) -> LibrarySettings:
@@ -42,6 +43,7 @@ def read_settings(session: Session) -> LibrarySettings:
         scan_interval=library_config.get_scan_interval(session),
         match_threshold=library_config.get_match_threshold(session),
         overwrite=library_config.get_overwrite(session),
+        write_metadata=library_config.get_write_metadata(session),
     )
 
 
@@ -75,6 +77,7 @@ class UpdateLibrarySettings(BaseModel):
     scan_interval: int
     match_threshold: int
     overwrite: bool
+    write_metadata: bool
 
 
 @router.patch("", status_code=204)
@@ -112,6 +115,7 @@ def update_library_settings(
     library_config.set_scan_interval(session, body.scan_interval)
     library_config.set_match_threshold(session, body.match_threshold)
     library_config.set_overwrite(session, body.overwrite)
+    library_config.set_write_metadata(session, body.write_metadata)
 
     reschedule(library_config.get_scan_interval(session))
 

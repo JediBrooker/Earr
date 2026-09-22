@@ -9,6 +9,7 @@ from app.internal.audiobookshelf.client import background_abs_trigger_scan
 from app.internal.audiobookshelf.config import abs_config
 from app.internal.auth.authentication import AnyAuth, DetailedUser
 from app.internal.library.config import LibraryMisconfigured, library_config
+from app.internal.library.metadata import write_metadata
 from app.internal.library.organizer import OrganizeError, organize, resolve_target_dir
 from app.internal.library.watcher import get_book, scan
 from app.internal.models import (
@@ -117,6 +118,9 @@ def import_download(
         )
     except (OrganizeError, OSError) as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+    if library_config.get_write_metadata(session):
+        write_metadata(target_dir, book, library_config.get_overwrite(session))
 
     entry = session.exec(
         select(LibraryImport).where(

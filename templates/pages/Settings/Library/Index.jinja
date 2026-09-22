@@ -150,6 +150,11 @@
                     render as just the title for standalone books.
                 </p>
                 <p class="text-xs opacity-60 pt-1">
+                    A <span class="font-mono">|</span> inside those brackets adds a fallback, so
+                    <span class="font-mono">[{{ "{" }}series{{ "}" }} #{{ "{" }}series_position{{ "}" }}|{{ "{" }}title{{ "}" }}]</span>
+                    names the folder after the series for a series book and after the title for a standalone one.
+                </p>
+                <p class="text-xs opacity-60 pt-1">
                     <span class="font-bold">Note:</span> Audible does not always expose series information. The series
                     position is read from the subtitle and may be missing for some books. Manual requests never have a series.
                 </p>
@@ -179,6 +184,22 @@
         <p class="text-xs opacity-60">
             How closely the name of a finished download has to match the release that was grabbed. Lower it if
             downloads are not being picked up, raise it if the wrong ones are.
+        </p>
+
+        <div class="w-full flex items-center justify-between gap-2 pt-4">
+            <label for="library-write-metadata">
+                Write metadata.json
+            </label>
+            <input id="library-write-metadata"
+                   name="write_metadata"
+                   type="checkbox"
+                   class="checkbox"
+                   {% if settings.write_metadata %}checked{% endif %} />
+        </div>
+        <p class="text-xs opacity-60">
+            Writes the title, authors, narrators, series and ASIN into the organized folder as a
+            metadata.json. Audiobookshelf reads that file and prefers it over guessing from file names,
+            so a release with messy names still shows up correctly. An existing file is left alone.
         </p>
 
         <div class="w-full flex items-center justify-between gap-2 pt-4">
