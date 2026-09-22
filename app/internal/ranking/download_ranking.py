@@ -18,13 +18,29 @@ class RankSource(pydantic.BaseModel):
     quality: Quality
 
 
+class RankedSources(pydantic.BaseModel):
+    """Every source, best first, plus the subset worth downloading unattended.
+
+    The full list is what the sources page shows, so an admin can still pick a
+    source the heuristics rejected. `valid` is what automatic downloading is
+    allowed to touch.
+    """
+
+    all: list[ProwlarrSource]
+    valid: list[ProwlarrSource]
+
+    @property
+    def best_valid(self) -> ProwlarrSource | None:
+        return self.valid[0] if self.valid else None
+
+
 async def rank_sources(
     session: Session,
     client_session: ClientSession,
     sources: list[ProwlarrSource],
     book: Audiobook | ManualBookRequest,
     is_manual: bool = False,
-) -> list[ProwlarrSource]:
+) -> RankedSources:
     async def get_qualities(source: ProwlarrSource):
         qualities = await extract_qualities(session, client_session, source, book)
         return [RankSource(source=source, quality=q) for q in qualities]
@@ -35,7 +51,10 @@ async def rank_sources(
     compare = CompareSource(session, book, is_manual)
     rank_sources.sort(key=cmp_to_key(compare))
 
-    return [rs.source for rs in rank_sources]
+    return RankedSources(
+        all=[rs.source for rs in rank_sources],
+        valid=[rs.source for rs in rank_sources if compare.is_valid(rs)],
+    )
 
 
 @final
@@ -157,26 +176,25 @@ class CompareSource:
         # Require at least one author OR one narrator match
         return author_score > 0 or narrator_score > 0
 
-    def _compare_valid(self, a: RankSource, b: RankSource, next_compare: int) -> int:
-        """Filter out any reasons that make it not valid"""
+    def is_valid(self, a: RankSource) -> bool:
+        """Whether a source clears the configured bar at all.
+
+        Sorting alone is not enough for automatic downloads: if every result is
+        junk, the best of them is still junk, so this is what decides whether a
+        source may be grabbed without a human looking at it.
+        """
+        valid = self._is_valid_quality(a)
         if a.source.protocol == "torrent":
-            a_valid = self._is_valid_quality(
-                a
-            ) and a.source.seeders >= quality_config.get_min_seeders(self.session)
-        else:
-            a_valid = self._is_valid_quality(a)
+            valid = valid and a.source.seeders >= quality_config.get_min_seeders(
+                self.session
+            )
+        # a reasonable match with the book: title, or author/narrator
+        return valid and self._has_minimum_match(a)
 
-        if b.source.protocol == "torrent":
-            b_valid = self._is_valid_quality(
-                b
-            ) and b.source.seeders >= quality_config.get_min_seeders(self.session)
-        else:
-            b_valid = self._is_valid_quality(b)
-
-        # Check if the source has a reasonable match with the book
-        # Require either title match OR (author/narrator match)
-        a_valid = a_valid and self._has_minimum_match(a)
-        b_valid = b_valid and self._has_minimum_match(b)
+    def _compare_valid(self, a: RankSource, b: RankSource, next_compare: int) -> int:
+        """Sorts sources that fail the configured bar to the bottom"""
+        a_valid = self.is_valid(a)
+        b_valid = self.is_valid(b)
 
         if a_valid == b_valid:
             return self._get_next_compare(next_compare)(a, b, next_compare + 1)

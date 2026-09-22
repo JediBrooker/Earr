@@ -380,7 +380,7 @@ async def start_auto_download_endpoint(
 ):
     _ = trusted_user
     try:
-        await query_sources(
+        result = await query_sources(
             asin_or_uuid=asin_or_uuid,
             start_auto_download=True,
             session=session,
@@ -388,5 +388,10 @@ async def start_auto_download_endpoint(
         )
     except HTTPException as e:
         raise ToastException(e.detail) from None
+
+    # nothing cleared the quality bar, so nothing was grabbed. Say so rather
+    # than returning a silent success.
+    if result.error_message:
+        raise ToastException(result.error_message, "info")
 
     return Response(status_code=204)

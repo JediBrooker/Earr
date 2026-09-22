@@ -90,14 +90,38 @@ async def query_sources(
         ranked = await rank_sources(session, client_session, sources, book, is_manual)
 
         # start download if requested
-        if start_auto_download and not book.downloaded and len(ranked) > 0:
+        if start_auto_download and not book.downloaded:
+            # ranking only sorts, so the top result can still be something that
+            # matches nothing and has no seeders. Grabbing the least bad option
+            # unattended is worse than grabbing nothing.
+            best = ranked.best_valid
+            if best is None:
+                logger.info(
+                    "No source met the configured quality bar, not auto-downloading",
+                    asin_or_uuid=asin_or_uuid,
+                    title=book.title,
+                    sources_found=len(ranked.all),
+                )
+                return QueryResult(
+                    sources=ranked.all,
+                    book=book,
+                    state="ok",
+                    error_message=(
+                        f"Found {len(ranked.all)} source(s), but none met the quality, "
+                        "seeder and title-match settings. Pick one manually or loosen "
+                        "the settings under Settings > Download."
+                    )
+                    if ranked.all
+                    else None,
+                )
+
             resp = await start_download(
                 session=session,
                 client_session=client_session,
-                guid=ranked[0].guid,
-                indexer_id=ranked[0].indexer_id,
+                guid=best.guid,
+                indexer_id=best.indexer_id,
                 asin_or_uuid=asin_or_uuid,
-                prowlarr_source=ranked[0],
+                prowlarr_source=best,
             )
             if resp.ok:
                 # Try to trigger an ABS scan to pick up new media
@@ -110,7 +134,7 @@ async def query_sources(
                 raise HTTPException(status_code=500, detail="Failed to start download")
 
         return QueryResult(
-            sources=ranked,
+            sources=ranked.all,
             book=book,
             state="ok",
         )
