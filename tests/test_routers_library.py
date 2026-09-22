@@ -261,3 +261,97 @@ class TestManualImport:
             headers=admin,
         )
         assert r.status_code == 404
+
+
+class TestDownloadClientForm:
+    """The page form posts to an hx- endpoint and a browser omits empty inputs.
+
+    Requiring those fields answered 422, and the settings could not be saved at
+    all unless every box was filled. Note the page routes use session auth, so
+    the behaviour is exercised through the API, which shares the logic, plus a
+    signature check on the form handler itself.
+    """
+
+    API = "/api/settings/library/download-clients"
+
+    def test_every_form_field_has_a_default(self):
+        """The actual regression: a required Form field 422s when omitted."""
+        import inspect
+
+        from app.routers.pages.settings.library import update_download_clients
+
+        params = inspect.signature(update_download_clients).parameters
+        form_fields = [
+            "qbit_url",
+            "qbit_username",
+            "qbit_password",
+            "sab_url",
+            "sab_api_key",
+            "qbit_enabled",
+            "sab_enabled",
+        ]
+        missing = [
+            f
+            for f in form_fields
+            if params[f].default is inspect.Parameter.empty
+        ]
+        assert missing == [], f"these would 422 when the browser omits them: {missing}"
+
+    def test_a_blank_secret_keeps_the_stored_one(
+        self, client: TestClient, admin: dict[str, str], session: Session
+    ):
+        from app.internal.download_clients.config import download_client_config
+
+        download_client_config.set_sab_api_key(session, "the-real-key")
+
+        r = client.put(
+            self.API,
+            json={
+                "sab_enabled": True,
+                "sab_url": "http://127.0.0.1:7777",
+                "sab_api_key": None,
+            },
+            headers=admin,
+        )
+
+        assert r.status_code == 204, r.text[:200]
+        assert download_client_config.get_sab_api_key(session) == "the-real-key"
+
+    def test_a_supplied_secret_replaces_it(
+        self, client: TestClient, admin: dict[str, str], session: Session
+    ):
+        from app.internal.download_clients.config import download_client_config
+
+        download_client_config.set_sab_api_key(session, "old")
+
+        r = client.put(
+            self.API,
+            json={
+                "sab_enabled": True,
+                "sab_url": "http://127.0.0.1:7777",
+                "sab_api_key": "new",
+            },
+            headers=admin,
+        )
+
+        assert r.status_code == 204, r.text[:200]
+        assert download_client_config.get_sab_api_key(session) == "new"
+
+    def test_enabling_without_a_url_is_rejected(
+        self, client: TestClient, admin: dict[str, str]
+    ):
+        r = client.put(self.API, json={"qbit_enabled": True}, headers=admin)
+
+        assert r.status_code == 422
+        assert "URL is required" in r.json()["detail"]
+
+    def test_an_empty_payload_turns_both_off(
+        self, client: TestClient, admin: dict[str, str], session: Session
+    ):
+        from app.internal.download_clients.config import download_client_config
+
+        r = client.put(self.API, json={}, headers=admin)
+
+        assert r.status_code == 204
+        assert download_client_config.get_qbit_enabled(session) is False
+        assert download_client_config.get_sab_enabled(session) is False

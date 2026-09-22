@@ -158,13 +158,15 @@ async def scan_now(
 
 @router.put("/hx-download-clients")
 def update_download_clients(
-    qbit_url: Annotated[str, Form()],
-    qbit_username: Annotated[str, Form()],
-    qbit_password: Annotated[str, Form()],
-    sab_url: Annotated[str, Form()],
-    sab_api_key: Annotated[str, Form()],
     session: Annotated[Session, Depends(get_session)],
     admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
+    # every field defaults: a browser omits empty inputs, and an empty secret
+    # means "keep the stored one" rather than "this is missing"
+    qbit_url: Annotated[str, Form()] = "",
+    qbit_username: Annotated[str, Form()] = "",
+    qbit_password: Annotated[str, Form()] = "",
+    sab_url: Annotated[str, Form()] = "",
+    sab_api_key: Annotated[str, Form()] = "",
     qbit_enabled: Annotated[bool, Form()] = False,
     sab_enabled: Annotated[bool, Form()] = False,
 ):
