@@ -6,8 +6,10 @@ on:
       - "**.py"
       - "**.html"
       - "**.css"
+      - "**.jinja"
       - "**.yaml"
       - "uv.lock"
+      - "justfile"
       - "package-lock.json"
       - "Dockerfile"
   pull_request:
@@ -15,8 +17,10 @@ on:
       - "**.py"
       - "**.html"
       - "**.css"
+      - "**.jinja"
       - "**.yaml"
       - "uv.lock"
+      - "justfile"
       - "package-lock.json"
       - "Dockerfile"
   release:
