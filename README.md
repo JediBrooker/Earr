@@ -229,3 +229,17 @@ Earr builds on top of a some other great open-source tools. A big thanks goes ou
 
 - [Prowlarr](https://github.com/Prowlarr/Prowlarr) - Does a lot of the heavy lifting concerning searching through indexers and forwarding download requests to download clients. Saves me the ordeal of having to reimplement everything again.
 - [External Audible API](https://audible.readthedocs.io/en/latest/misc/external_api.html) - Audible exposes key API endpoints which are used to, for example, search for books.
+
+## Tests
+
+```sh
+just test          # pytest
+just types         # basedpyright
+just test_format   # djlint + ruff
+just test_jinja    # jinjax template parameters
+just check_migrations
+```
+
+Tests live in `tests/` and run against an in-memory SQLite database and real
+temporary directories, so the file operations are exercised for real rather
+than mocked.

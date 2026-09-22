@@ -54,6 +54,9 @@ jobs:
       - name: Check if Jinjax parameters are defined
         run: just test_jinja
 
+      - name: Run tests
+        run: just test
+
       - run: echo "$PWD/.venv/bin" >> $GITHUB_PATH
 
       - name: Check SQLite Alembic Migrations

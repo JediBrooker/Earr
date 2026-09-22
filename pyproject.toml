@@ -54,9 +54,17 @@ ignore_case=true
 
 
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# the project is not installed as a package, so the repo root has to be importable
+pythonpath = ["."]
+asyncio_mode = "auto"
+filterwarnings = ["error::DeprecationWarning:app.*"]
+
 [tool.basedpyright]
 typeCheckingMode = "all"
 include = ["app"]
+exclude = ["tests"]
 reportDeprecated = false
 reportUnusedCallResult = false
 allowedUntypedLibraries = ["apscheduler", "torrent_parser", "jinjax"]
@@ -65,5 +73,7 @@ allowedUntypedLibraries = ["apscheduler", "torrent_parser", "jinjax"]
 dev = [
     "basedpyright>=1.39.9",
     "djlint>=1.42.1",
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.2.0",
     "ruff>=0.15.22",
 ]

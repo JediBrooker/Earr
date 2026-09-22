@@ -109,15 +109,19 @@ def set_download_status(
     book: Audiobook | ManualBookRequest,
     status: DownloadStatusEnum,
 ) -> None:
-    """Records what really happened to a grab.
+    """Records what really happened to a grab, keeping `downloaded` in step.
 
-    A failure also clears `downloaded`, which is the flag that stops a book
-    being recommended or auto-grabbed again. Clearing it puts the book back on
-    the wishlist so it can be picked up instead of sitting there looking done.
+    `downloaded` is the flag that stops a book being recommended or auto-grabbed
+    again. A failure clears it, which puts the book back on the wishlist instead
+    of leaving it there looking done. Confirmed files set it, so a book that was
+    organized without going through a grab, such as via the import endpoint,
+    does not sit in the library still marked as outstanding.
     """
     book.download_status = status
     if status == DownloadStatusEnum.failed:
         book.downloaded = False
+    elif status == DownloadStatusEnum.downloaded:
+        book.downloaded = True
     session.add(book)
     session.commit()
 
