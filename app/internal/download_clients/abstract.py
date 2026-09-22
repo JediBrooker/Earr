@@ -48,6 +48,22 @@ class DownloadClient(ABC):
         """Returns whether the client is reachable, and a message either way."""
 
     @abstractmethod
+    async def set_category(
+        self,
+        client_session: ClientSession,
+        category: str,
+        *,
+        client_id: str | None = None,
+        name: str | None = None,
+    ) -> bool:
+        """Moves a job into a category after Prowlarr has added it.
+
+        Prowlarr decides the category when it hands a release to the client and
+        offers no way to override it, so the only opportunity is afterwards.
+        Returns whether the client accepted the change.
+        """
+
+    @abstractmethod
     async def find(
         self,
         client_session: ClientSession,

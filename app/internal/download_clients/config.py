@@ -14,15 +14,18 @@ from app.internal.download_clients.abstract import DownloadClient
 from app.internal.download_clients.qbittorrent import QBittorrentClient
 from app.internal.download_clients.sabnzbd import SabnzbdClient
 from app.util.cache import StringConfigCache
+from app.util.log import logger
 
 DownloadClientConfigKey = Literal[
     "dc_qbit_enabled",
     "dc_qbit_url",
     "dc_qbit_username",
     "dc_qbit_password",
+    "dc_qbit_category",
     "dc_sab_enabled",
     "dc_sab_url",
     "dc_sab_api_key",
+    "dc_sab_category",
 ]
 
 
@@ -52,6 +55,13 @@ class DownloadClientConfig(StringConfigCache[DownloadClientConfigKey]):
     def set_qbit_password(self, session: Session, password: str):
         self.set(session, "dc_qbit_password", password)
 
+    def get_qbit_category(self, session: Session) -> str:
+        """Category to move a grab into. Empty leaves Prowlarr's choice alone."""
+        return self.get(session, "dc_qbit_category", "")
+
+    def set_qbit_category(self, session: Session, category: str):
+        self.set(session, "dc_qbit_category", category.strip())
+
     def get_sab_enabled(self, session: Session) -> bool:
         return bool(self.get_bool(session, "dc_sab_enabled") or False)
 
@@ -70,6 +80,12 @@ class DownloadClientConfig(StringConfigCache[DownloadClientConfigKey]):
 
     def set_sab_api_key(self, session: Session, api_key: str):
         self.set(session, "dc_sab_api_key", api_key.strip())
+
+    def get_sab_category(self, session: Session) -> str:
+        return self.get(session, "dc_sab_category", "")
+
+    def set_sab_category(self, session: Session, category: str):
+        self.set(session, "dc_sab_category", category.strip())
 
     def build_qbit(self, session: Session) -> QBittorrentClient | None:
         url = self.get_qbit_url(session)
@@ -120,3 +136,41 @@ class DownloadClientConfig(StringConfigCache[DownloadClientConfigKey]):
 
 
 download_client_config = DownloadClientConfig()
+
+
+async def apply_category(
+    session: Session,
+    client_session: ClientSession,
+    *,
+    protocol: str | None,
+    client_id: str | None,
+    name: str | None,
+) -> None:
+    """Moves a freshly grabbed download into the configured category.
+
+    Prowlarr picks the category when it hands a release to the client and its
+    API offers no way to override it, so this is done afterwards. Best effort:
+    a failure is logged and nothing else changes, since the download is already
+    running and the library watcher does not depend on where it sits.
+    """
+    if protocol == "torrent":
+        client = download_client_config.build_qbit(session)
+        category = download_client_config.get_qbit_category(session)
+    elif protocol == "usenet":
+        client = download_client_config.build_sab(session)
+        category = download_client_config.get_sab_category(session)
+    else:
+        return
+
+    if client is None or not category:
+        return
+
+    ok = await client.set_category(
+        client_session, category, client_id=client_id, name=name
+    )
+    logger.info(
+        "Moved grab into category" if ok else "Could not set the category",
+        client=client.name,
+        category=category,
+        release=name,
+    )

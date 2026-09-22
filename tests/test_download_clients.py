@@ -39,9 +39,21 @@ async def serve() -> Any:
         await runner.cleanup()
 
 
-def qbit_routes(torrents: list[dict[str, object]], version: str = "v4.6.0") -> list[Any]:
+CATEGORY_CALLS: list[dict[str, str]] = []
+
+
+def qbit_routes(
+    torrents: list[dict[str, object]],
+    version: str = "v4.6.0",
+    category_status: int = 200,
+) -> list[Any]:
     async def login(request: web.Request) -> web.Response:
         return web.Response(text="Ok.", headers={"Set-Cookie": "SID=test; path=/"})
+
+    async def set_category(request: web.Request) -> web.Response:
+        form = await request.post()
+        CATEGORY_CALLS.append({k: str(v) for k, v in form.items()})
+        return web.Response(status=category_status, text="")
 
     async def info(request: web.Request) -> web.Response:
         hashes = request.query.get("hashes")
@@ -57,6 +69,7 @@ def qbit_routes(torrents: list[dict[str, object]], version: str = "v4.6.0") -> l
         web.post("/api/v2/auth/login", login),
         web.get("/api/v2/torrents/info", info),
         web.get("/api/v2/app/version", ver),
+        web.post("/api/v2/torrents/setCategory", set_category),
     ]
 
 
@@ -138,6 +151,36 @@ class TestQBittorrent:
         assert message
 
 
+class TestQBittorrentCategory:
+    def setup_method(self):
+        CATEGORY_CALLS.clear()
+
+    async def test_the_hash_and_category_are_sent(self, serve: Any):
+        url = await serve(qbit_routes([]))
+        async with ClientSession() as cs:
+            ok = await QBittorrentClient(url).set_category(cs, "books", client_id=HASH)
+
+        assert ok is True
+        assert CATEGORY_CALLS == [{"hashes": HASH.lower(), "category": "books"}]
+
+    async def test_an_unknown_category_is_reported(self, serve: Any):
+        """qBittorrent answers 409 for a category that does not exist."""
+        url = await serve(qbit_routes([], category_status=409))
+        async with ClientSession() as cs:
+            ok = await QBittorrentClient(url).set_category(cs, "nope", client_id=HASH)
+
+        assert ok is False
+
+    async def test_without_a_hash_nothing_is_attempted(self, serve: Any):
+        """qBittorrent keys this endpoint on hashes only."""
+        url = await serve(qbit_routes([]))
+        async with ClientSession() as cs:
+            ok = await QBittorrentClient(url).set_category(cs, "books", name="some name")
+
+        assert ok is False
+        assert CATEGORY_CALLS == []
+
+
 def sab_routes(history: list[dict[str, object]], queue: list[dict[str, object]]) -> list[Any]:
     async def api(request: web.Request) -> web.Response:
         mode = request.query.get("mode")
@@ -150,6 +193,49 @@ def sab_routes(history: list[dict[str, object]], queue: list[dict[str, object]])
         return web.json_response({"error": "unknown mode"})
 
     return [web.get("/api", api)]
+
+
+SAB_CATEGORY_CALLS: list[dict[str, str]] = []
+
+
+def sab_routes_with_category(queue: list[dict[str, object]], ok: bool = True) -> list[Any]:
+    async def api(request: web.Request) -> web.Response:
+        mode = request.query.get("mode")
+        if mode == "change_cat":
+            SAB_CATEGORY_CALLS.append(dict(request.query))
+            return web.json_response({"status": ok})
+        if mode == "queue":
+            return web.json_response({"queue": {"slots": queue}})
+        if mode == "history":
+            return web.json_response({"history": {"slots": []}})
+        return web.json_response({})
+
+    return [web.get("/api", api)]
+
+
+class TestSabnzbdCategory:
+    def setup_method(self):
+        SAB_CATEGORY_CALLS.clear()
+
+    async def test_a_queued_job_is_recategorised(self, serve: Any):
+        url = await serve(sab_routes_with_category(
+            [{"nzo_id": "SABnzbd_nzo_9", "filename": "Some Book", "percentage": "10"}]
+        ))
+        async with ClientSession() as cs:
+            ok = await SabnzbdClient(url, "key").set_category(cs, "books", name="Some Book")
+
+        assert ok is True
+        assert SAB_CATEGORY_CALLS[0]["value"] == "SABnzbd_nzo_9"
+        assert SAB_CATEGORY_CALLS[0]["value2"] == "books"
+
+    async def test_a_job_not_in_the_queue_cannot_be_recategorised(self, serve: Any):
+        """SABnzbd will not recategorise something it has already finished."""
+        url = await serve(sab_routes_with_category([]))
+        async with ClientSession() as cs:
+            ok = await SabnzbdClient(url, "key").set_category(cs, "books", name="Gone")
+
+        assert ok is False
+        assert SAB_CATEGORY_CALLS == []
 
 
 class TestSabnzbd:

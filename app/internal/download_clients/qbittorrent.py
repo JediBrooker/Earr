@@ -105,6 +105,49 @@ class QBittorrentClient(DownloadClient):
             return False, str(e)
 
     @override
+    async def set_category(
+        self,
+        client_session: ClientSession,
+        category: str,
+        *,
+        client_id: str | None = None,
+        name: str | None = None,
+    ) -> bool:
+        """Note this can move files: with Auto Torrent Management on, and a save
+        path set for the category, qBittorrent relocates the torrent's data."""
+        if not client_id:
+            info = await self.find(client_session, name=name)
+            if info is None:
+                return False
+            # qBittorrent only accepts hashes here, so without one there is
+            # nothing to act on
+            return False
+        if not await self._login(client_session):
+            return False
+        try:
+            async with client_session.post(
+                self._url("torrents/setCategory"),
+                data={"hashes": client_id.lower(), "category": category},
+                headers=self._headers(),
+            ) as response:
+                if response.status == 409:
+                    logger.warning(
+                        "qBittorrent: category does not exist", category=category
+                    )
+                    return False
+                if not response.ok:
+                    logger.warning(
+                        "qBittorrent: could not set category",
+                        status=response.status,
+                        category=category,
+                    )
+                    return False
+                return True
+        except Exception as e:
+            logger.warning("qBittorrent: set category failed", error=str(e))
+            return False
+
+    @override
     async def find(
         self,
         client_session: ClientSession,

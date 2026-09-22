@@ -13,6 +13,7 @@ from sqlmodel import Session, select
 from torf import BdecodeError, MetainfoError, ReadError, Torrent
 
 from app.internal.indexers.abstract import SessionContainer
+from app.internal.download_clients.config import apply_category
 from app.internal.library.config import library_config
 from app.internal.library.tracking import record_grab
 from app.internal.models import (
@@ -153,6 +154,16 @@ async def start_download(
             additional_replacements["sourceProtocol"] = prowlarr_source.protocol
 
         logger.debug("Download successfully started", guid=guid)
+
+        # Prowlarr decides the category when it hands the release over and has
+        # no way to override it, so move it afterwards if one is configured
+        await apply_category(
+            session,
+            client_session,
+            protocol=prowlarr_source.protocol if prowlarr_source else None,
+            client_id=additional_replacements.get("torrentInfoHash"),
+            name=prowlarr_source.title if prowlarr_source else None,
+        )
         # the library watcher confirms the files later and owns the success
         # notification from then on; without it there is nothing better to wait for
         confirms_later = library_config.get_enabled(session)

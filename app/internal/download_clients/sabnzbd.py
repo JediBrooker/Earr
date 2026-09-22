@@ -87,6 +87,34 @@ class SabnzbdClient(DownloadClient):
         return True, f"Connected to SABnzbd {version}"
 
     @override
+    async def set_category(
+        self,
+        client_session: ClientSession,
+        category: str,
+        *,
+        client_id: str | None = None,
+        name: str | None = None,
+    ) -> bool:
+        """Only works while the job is still in the queue; SABnzbd will not
+        recategorise something it has already finished."""
+        nzo_id = client_id
+        if not nzo_id:
+            queue = await self._call(client_session, "queue", limit="200")
+            slot = (
+                self._pick(_slots(queue, "queue"), None, name, "nzo_id")
+                if queue
+                else None
+            )
+            nzo_id = _s(slot, "nzo_id") if slot else None
+        if not nzo_id:
+            return False
+
+        payload = await self._call(
+            client_session, "change_cat", value=nzo_id, value2=category
+        )
+        return bool(payload and payload.get("status") is True)
+
+    @override
     async def find(
         self,
         client_session: ClientSession,

@@ -27,9 +27,11 @@ class DownloadClientSettings(BaseModel):
     qbit_url: str
     qbit_username: str
     qbit_password_set: bool
+    qbit_category: str
     sab_enabled: bool
     sab_url: str
     sab_api_key_set: bool
+    sab_category: str
 
 
 class LibrarySettings(BaseModel):
@@ -64,9 +66,11 @@ def read_settings(session: Session) -> LibrarySettings:
             qbit_username=download_client_config.get_qbit_username(session),
             # never send secrets back out, only whether one is stored
             qbit_password_set=bool(download_client_config.get_qbit_password(session)),
+            qbit_category=download_client_config.get_qbit_category(session),
             sab_enabled=download_client_config.get_sab_enabled(session),
             sab_url=download_client_config.get_sab_url(session) or "",
             sab_api_key_set=bool(download_client_config.get_sab_api_key(session)),
+            sab_category=download_client_config.get_sab_category(session),
         ),
     )
 
@@ -160,10 +164,12 @@ class UpdateDownloadClients(BaseModel):
     qbit_username: str = ""
     qbit_password: str | None = None
     """Left out to keep the stored password."""
+    qbit_category: str = ""
     sab_enabled: bool = False
     sab_url: str = ""
     sab_api_key: str | None = None
     """Left out to keep the stored key."""
+    sab_category: str = ""
 
 
 @router.put("/download-clients", status_code=204)
@@ -180,11 +186,13 @@ def update_download_clients(
     download_client_config.set_qbit_enabled(session, body.qbit_enabled)
     download_client_config.set_qbit_url(session, body.qbit_url)
     download_client_config.set_qbit_username(session, body.qbit_username)
+    download_client_config.set_qbit_category(session, body.qbit_category)
     if body.qbit_password is not None:
         download_client_config.set_qbit_password(session, body.qbit_password)
 
     download_client_config.set_sab_enabled(session, body.sab_enabled)
     download_client_config.set_sab_url(session, body.sab_url)
+    download_client_config.set_sab_category(session, body.sab_category)
     if body.sab_api_key is not None:
         download_client_config.set_sab_api_key(session, body.sab_api_key)
 

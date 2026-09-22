@@ -165,8 +165,10 @@ def update_download_clients(
     qbit_url: Annotated[str, Form()] = "",
     qbit_username: Annotated[str, Form()] = "",
     qbit_password: Annotated[str, Form()] = "",
+    qbit_category: Annotated[str, Form()] = "",
     sab_url: Annotated[str, Form()] = "",
     sab_api_key: Annotated[str, Form()] = "",
+    sab_category: Annotated[str, Form()] = "",
     qbit_enabled: Annotated[bool, Form()] = False,
     sab_enabled: Annotated[bool, Form()] = False,
 ):
@@ -178,9 +180,11 @@ def update_download_clients(
                 qbit_username=qbit_username,
                 # an empty box means "leave the stored secret alone"
                 qbit_password=qbit_password or None,
+                qbit_category=qbit_category,
                 sab_enabled=sab_enabled,
                 sab_url=sab_url,
                 sab_api_key=sab_api_key or None,
+                sab_category=sab_category,
             ),
             session,
             admin_user,
