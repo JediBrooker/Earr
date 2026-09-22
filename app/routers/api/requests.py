@@ -92,7 +92,9 @@ async def create_manual_request(
     return Response(status_code=201)
 
 
-@router.post("/{asin_or_uuid}", response_model=Audiobook)
+# the handler returns AudiobookWithRequests; declaring response_model=Audiobook
+# made FastAPI validate the wrapper against the inner model and always fail
+@router.post("/{asin_or_uuid}")
 async def create_request(
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
@@ -160,6 +162,11 @@ async def create_request(
     requests = session.exec(
         select(AudiobookRequest).where(AudiobookRequest.asin == asin_or_uuid)
     ).all()
+
+    # the commits above expire `book`, and serialization reads the instance
+    # dictionary directly rather than triggering a lazy reload, so without this
+    # the response carries an empty book
+    session.refresh(book)
 
     return AudiobookWithRequests(
         book=book,

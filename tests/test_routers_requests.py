@@ -197,3 +197,64 @@ class TestDeletion:
 class TestHealth:
     def test_health_needs_no_credentials(self, client: TestClient):
         assert client.get("/api/health").status_code == 200
+
+
+class TestCreateRequest:
+    """POST /api/requests/{asin} used to answer 500 for every call.
+
+    The handler returns AudiobookWithRequests but the route declared
+    response_model=Audiobook, so FastAPI validated the wrapper against the
+    inner model and found six required fields missing. Because automatic
+    downloading is scheduled as a background task, and background tasks only
+    run after a successful response, a request made over the API never
+    triggered a grab either.
+    """
+
+    def test_requesting_a_cached_book_succeeds(
+        self, client: TestClient, session: Session
+    ):
+        key = api_key_for(session, GroupEnum.untrusted, "requester")
+        book = series_book()
+        session.add(book)
+        session.commit()
+
+        r = client.post(f"/api/requests/{book.asin}", headers=auth(key))
+
+        assert r.status_code == 200, r.text[:200]
+
+    def test_the_response_carries_the_book_and_its_requests(
+        self, client: TestClient, session: Session
+    ):
+        key = api_key_for(session, GroupEnum.untrusted, "requester")
+        book = series_book()
+        session.add(book)
+        session.commit()
+
+        body = client.post(f"/api/requests/{book.asin}", headers=auth(key)).json()
+
+        assert body["book"]["asin"] == book.asin
+        assert body["book"]["title"] == book.title
+        assert [r["user_username"] for r in body["requests"]] == ["requester"]
+
+    def test_the_request_is_persisted(self, client: TestClient, session: Session):
+        key = api_key_for(session, GroupEnum.untrusted, "requester")
+        book = series_book()
+        session.add(book)
+        session.commit()
+
+        _ = client.post(f"/api/requests/{book.asin}", headers=auth(key))
+
+        assert session.exec(select(AudiobookRequest)).one().asin == book.asin
+
+    def test_requesting_the_same_book_twice_conflicts(
+        self, client: TestClient, session: Session
+    ):
+        key = api_key_for(session, GroupEnum.untrusted, "requester")
+        book = series_book()
+        session.add(book)
+        session.commit()
+
+        _ = client.post(f"/api/requests/{book.asin}", headers=auth(key))
+        second = client.post(f"/api/requests/{book.asin}", headers=auth(key))
+
+        assert second.status_code == 409
