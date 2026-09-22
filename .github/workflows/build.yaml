@@ -83,46 +83,55 @@ jobs:
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'release'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to Docker Hub
+      # GITHUB_TOKEN is provided automatically, so this works on a fork with
+      # no secrets to configure
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Determine tags
         id: vars
         run: |
+          # ghcr requires a lowercase path
+          IMAGE="ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')/earr"
           if [ "${{ github.event_name }}" == "release" ]; then
             VERSION="${{ github.event.release.tag_name }}"
-            # Remove leading 'v' if present
             VERSION="${VERSION#v}"
             MAJOR=$(echo $VERSION | cut -d. -f1)
             MINOR=$(echo $VERSION | cut -d. -f2)
-            PATCH=$(echo $VERSION | cut -d. -f3)
-            echo "tags=${{ secrets.DOCKER_HUB_USERNAME }}/earr:$VERSION,${{ secrets.DOCKER_HUB_USERNAME }}/earr:$MAJOR.$MINOR,${{ secrets.DOCKER_HUB_USERNAME }}/earr:$MAJOR,${{ secrets.DOCKER_HUB_USERNAME }}/earr:latest" >> $GITHUB_OUTPUT
+            echo "tags=$IMAGE:$VERSION,$IMAGE:$MAJOR.$MINOR,$IMAGE:$MAJOR,$IMAGE:latest" >> $GITHUB_OUTPUT
             echo "version=$VERSION" >> $GITHUB_OUTPUT
           else
-            echo "tags=${{ secrets.DOCKER_HUB_USERNAME }}/earr:nightly" >> $GITHUB_OUTPUT
-            github_sha_hash=${{ github.sha }}
-            echo "version=nightly:${github_sha_hash:0:7}" >> $GITHUB_OUTPUT
+            SHA=${{ github.sha }}
+            SHORT=${SHA:0:7}
+            # tag every build with its commit so it is obvious what is deployed
+            echo "tags=$IMAGE:latest,$IMAGE:sha-$SHORT" >> $GITHUB_OUTPUT
+            echo "version=main-$SHORT" >> $GITHUB_OUTPUT
           fi
 
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          platforms: linux/amd64,linux/arm64
+          # amd64 only: the deployment target is x86 and emulating arm64 under
+          # QEMU makes this job an order of magnitude slower
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.vars.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           build-args: |
             VERSION=${{ steps.vars.outputs.version }}
