@@ -95,6 +95,24 @@
                                     {% if book.subtitle %}
                                         <span class="font-semibold line-clamp-4" title="{{ book.subtitle }}">{{ book.subtitle }}</span>
                                     {% endif %}
+                                    {% if book.download_status %}
+                                        {% if book.download_status.value == "grabbed" %}
+                                            <span class="badge badge-sm badge-ghost mt-1"
+                                                  title="Handed to the download client. The files have not been confirmed on disk yet.">
+                                                grabbed
+                                            </span>
+                                        {% elif book.download_status.value == "downloaded" %}
+                                            <span class="badge badge-sm badge-success mt-1"
+                                                  title="Files confirmed in your library.">
+                                                in library
+                                            </span>
+                                        {% elif book.download_status.value == "failed" %}
+                                            <span class="badge badge-sm badge-error mt-1"
+                                                  title="The grab never produced files. This book is back on the wishlist.">
+                                                failed
+                                            </span>
+                                        {% endif %}
+                                    {% endif %}
                                 </div>
                             </td>
                             <td>

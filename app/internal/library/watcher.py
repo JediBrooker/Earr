@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from rapidfuzz import fuzz, utils
-from sqlmodel import Session, col, select
+from sqlmodel import Session, col, desc, select
 
 from app.internal.audiobookshelf.client import background_abs_trigger_scan
 from app.internal.audiobookshelf.config import abs_config
@@ -26,9 +26,15 @@ from app.internal.library.organizer import (
 )
 from app.internal.models import (
     Audiobook,
+    DownloadStatusEnum,
+    EventEnum,
     LibraryImport,
     LibraryImportStatusEnum,
     ManualBookRequest,
+)
+from app.internal.notifications import (
+    send_all_manual_notifications,
+    send_all_notifications,
 )
 from app.util.db import get_session
 from app.util.log import logger
@@ -98,6 +104,24 @@ def find_match(
     return best
 
 
+def set_download_status(
+    session: Session,
+    book: Audiobook | ManualBookRequest,
+    status: DownloadStatusEnum,
+) -> None:
+    """Records what really happened to a grab.
+
+    A failure also clears `downloaded`, which is the flag that stops a book
+    being recommended or auto-grabbed again. Clearing it puts the book back on
+    the wishlist so it can be picked up instead of sitting there looking done.
+    """
+    book.download_status = status
+    if status == DownloadStatusEnum.failed:
+        book.downloaded = False
+    session.add(book)
+    session.commit()
+
+
 def _forget_gone(candidates: list[Path]) -> None:
     """Drops remembered sizes of downloads that are no longer in the folder."""
     known = {str(path) for path in candidates}
@@ -121,6 +145,9 @@ def expire_stale_imports(session: Session) -> int:
             f"No matching download found within {DEFAULT_PENDING_TTL_DAYS} days"
         )
         session.add(entry)
+        book = get_book(session, entry.asin_or_uuid)
+        if book is not None:
+            set_download_status(session, book, DownloadStatusEnum.failed)
     if stale:
         session.commit()
     return len(stale)
@@ -156,6 +183,7 @@ def import_single(session: Session, entry: LibraryImport, source: Path) -> None:
         entry.error = str(e)
         session.add(entry)
         session.commit()
+        set_download_status(session, book, DownloadStatusEnum.failed)
         return
 
     if library_config.get_write_metadata(session):
@@ -166,6 +194,7 @@ def import_single(session: Session, entry: LibraryImport, source: Path) -> None:
     entry.error = None
     session.add(entry)
     session.commit()
+    set_download_status(session, book, DownloadStatusEnum.downloaded)
 
 
 def scan(session: Session) -> int:
@@ -222,6 +251,30 @@ def scan(session: Session) -> int:
     return imported
 
 
+async def notify_imported(session: Session, entries: list[LibraryImport]) -> None:
+    """Fires onSuccessfulDownload now that the files are actually on disk."""
+    for entry in entries:
+        book = get_book(session, entry.asin_or_uuid)
+        replacements = {"targetPath": entry.target_path or ""}
+        try:
+            if isinstance(book, ManualBookRequest):
+                await send_all_manual_notifications(
+                    EventEnum.on_successful_download, book, replacements
+                )
+            else:
+                await send_all_notifications(
+                    EventEnum.on_successful_download,
+                    entry.asin_or_uuid,
+                    replacements,
+                )
+        except Exception as e:
+            logger.error(
+                "Library: failed to send download notification",
+                asin_or_uuid=entry.asin_or_uuid,
+                error=str(e),
+            )
+
+
 async def scan_downloads() -> None:
     """Scheduled entry point. Never raises so the scheduler keeps running."""
     try:
@@ -231,6 +284,15 @@ async def scan_downloads() -> None:
                 return
             logger.info("Library: organized downloads", count=imported)
             trigger_abs = abs_config.is_valid(session)
+            just_imported = list(
+                session.exec(
+                    select(LibraryImport)
+                    .where(LibraryImport.status == LibraryImportStatusEnum.imported)
+                    .order_by(desc(col(LibraryImport.updated_at)))
+                    .limit(imported)
+                ).all()
+            )
+            await notify_imported(session, just_imported)
     except Exception as e:
         logger.error("Library: scan failed", error=str(e))
         return

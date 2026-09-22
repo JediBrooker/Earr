@@ -20,6 +20,22 @@ class GroupEnum(str, Enum):
     admin = "admin"
 
 
+class DownloadStatusEnum(str, Enum):
+    """How far a book has actually got.
+
+    `Audiobook.downloaded` stays the "this has been actioned, do not grab or
+    recommend it again" guard it has always been. This tracks what really
+    happened, which Prowlarr never tells us directly.
+    """
+
+    grabbed = "grabbed"
+    """Handed to Prowlarr. The files may or may not ever arrive."""
+    downloaded = "downloaded"
+    """Files confirmed on disk by the library watcher."""
+    failed = "failed"
+    """The grab never produced files, or organizing them failed."""
+
+
 class User(BaseSQLModel, table=True):
     username: str = Field(primary_key=True)
     password: str
@@ -74,6 +90,7 @@ class Audiobook(BaseSQLModel, table=True):
     runtime_length_min: int
     series: str | None = None
     series_position: str | None = None
+    download_status: DownloadStatusEnum | None = Field(default=None, index=True)
     updated_at: datetime = Field(
         default_factory=datetime.now,
         sa_column=Column(
@@ -160,6 +177,7 @@ class ManualBookRequest(BaseSQLModel, table=True):
     narrators: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     publish_date: str | None = None
     additional_info: str | None = None
+    download_status: DownloadStatusEnum | None = Field(default=None, index=True)
     updated_at: datetime = Field(
         default_factory=datetime.now,
         sa_column=Column(
@@ -235,6 +253,7 @@ class Config(BaseSQLModel, table=True):
 
 class EventEnum(str, Enum):
     on_new_request = "onNewRequest"
+    on_grabbed = "onGrabbed"
     on_successful_download = "onSuccessfulDownload"
     on_failed_download = "onFailedDownload"
 

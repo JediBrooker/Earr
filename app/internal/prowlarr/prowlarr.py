@@ -13,9 +13,11 @@ from sqlmodel import Session, select
 from torf import BdecodeError, MetainfoError, ReadError, Torrent
 
 from app.internal.indexers.abstract import SessionContainer
+from app.internal.library.config import library_config
 from app.internal.library.tracking import record_grab
 from app.internal.models import (
     Audiobook,
+    DownloadStatusEnum,
     EventEnum,
     Indexer,
     ManualBookRequest,
@@ -151,8 +153,13 @@ async def start_download(
             additional_replacements["sourceProtocol"] = prowlarr_source.protocol
 
         logger.debug("Download successfully started", guid=guid)
+        # the library watcher confirms the files later and owns the success
+        # notification from then on; without it there is nothing better to wait for
+        confirms_later = library_config.get_enabled(session)
+
         if manual_book_request:
             manual_book_request.downloaded = True
+            manual_book_request.download_status = DownloadStatusEnum.grabbed
             session.add(manual_book_request)
             session.commit()
             _ = record_grab(
@@ -162,16 +169,23 @@ async def start_download(
                 _release_title(session, manual_book_request, guid, prowlarr_source),
             )
             await send_all_manual_notifications(
-                EventEnum.on_successful_download,
+                EventEnum.on_grabbed,
                 manual_book_request,
                 additional_replacements,
             )
+            if not confirms_later:
+                await send_all_manual_notifications(
+                    EventEnum.on_successful_download,
+                    manual_book_request,
+                    additional_replacements,
+                )
         else:
             same_books = session.exec(
                 select(Audiobook).where(Audiobook.asin == asin_or_uuid)
             ).all()
             for b in same_books:
                 b.downloaded = True
+                b.download_status = DownloadStatusEnum.grabbed
                 session.add(b)
             session.commit()
 
@@ -184,10 +198,16 @@ async def start_download(
                 )
 
             await send_all_notifications(
-                EventEnum.on_successful_download,
+                EventEnum.on_grabbed,
                 asin_or_uuid,
                 additional_replacements,
             )
+            if not confirms_later:
+                await send_all_notifications(
+                    EventEnum.on_successful_download,
+                    asin_or_uuid,
+                    additional_replacements,
+                )
 
         return response
 
