@@ -3,6 +3,8 @@
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from unittest import mock
+
 import pytest
 from sqlmodel import Session, select
 
@@ -136,7 +138,7 @@ class TestStability:
 
 
 class TestScan:
-    def test_a_finished_download_is_organized_and_marked(
+    async def test_a_finished_download_is_organized_and_marked(
         self, session: Session, configured: tuple[Path, Path]
     ):
         downloads, root = configured
@@ -146,15 +148,15 @@ class TestScan:
         _ = record_grab(session, book, book.asin, "andy weir - the martian")
         _ = make_download(downloads, "andy weir - the martian", {"01.m4b": "x"})
 
-        assert watcher.scan(session) == 0, "not stable on the first pass"
-        assert watcher.scan(session) == 1
+        assert await watcher.scan(session) == 0, "not stable on the first pass"
+        assert await watcher.scan(session) == 1
 
         session.refresh(book)
         assert book.download_status == DownloadStatusEnum.downloaded
         assert book.downloaded is True
         assert (root / "Andy Weir" / "The Martian" / "01.m4b").exists()
 
-    def test_partial_downloads_are_left_alone(
+    async def test_partial_downloads_are_left_alone(
         self, session: Session, configured: tuple[Path, Path]
     ):
         downloads, _ = configured
@@ -164,10 +166,10 @@ class TestScan:
         _ = record_grab(session, book, book.asin, "andy weir - the martian")
         _ = make_download(downloads, "andy weir - the martian", {"01.m4b.part": "x"})
 
-        assert watcher.scan(session) == 0
-        assert watcher.scan(session) == 0
+        assert await watcher.scan(session) == 0
+        assert await watcher.scan(session) == 0
 
-    def test_nothing_happens_while_disabled(
+    async def test_nothing_happens_while_disabled(
         self, session: Session, configured: tuple[Path, Path]
     ):
         downloads, _ = configured
@@ -181,7 +183,7 @@ class TestScan:
         session.commit()
         _ = make_download(downloads, "rel", {"01.m4b": "x"})
 
-        assert watcher.scan(session) == 0
+        assert await watcher.scan(session) == 0
 
     def test_a_regrab_does_not_queue_a_second_row(self, session: Session, configured):
         book = series_book()
@@ -205,7 +207,7 @@ class TestScan:
 
 
 class TestFailureHandling:
-    def test_a_grab_that_never_arrives_returns_to_the_wishlist(
+    async def test_a_grab_that_never_arrives_returns_to_the_wishlist(
         self, session: Session, configured: tuple[Path, Path]
     ):
         book = standalone_book()
@@ -222,7 +224,7 @@ class TestFailureHandling:
         )
         session.commit()
 
-        _ = watcher.scan(session)
+        _ = await watcher.scan(session)
 
         session.refresh(book)
         assert book.download_status == DownloadStatusEnum.failed
@@ -231,7 +233,7 @@ class TestFailureHandling:
         entry = session.exec(select(LibraryImport)).one()
         assert entry.status == LibraryImportStatusEnum.expired
 
-    def test_a_recent_grab_is_not_expired(self, session: Session, configured: tuple[Path, Path]):
+    async def test_a_recent_grab_is_not_expired(self, session: Session, configured: tuple[Path, Path]):
         book = standalone_book()
         book.downloaded = True
         session.add(book)
@@ -242,12 +244,92 @@ class TestFailureHandling:
         )
         session.commit()
 
-        _ = watcher.scan(session)
+        _ = await watcher.scan(session)
 
         entry = session.exec(select(LibraryImport)).one()
         assert entry.status == LibraryImportStatusEnum.pending
         session.refresh(book)
         assert book.downloaded is True
+
+
+class TestDownloadClientResolution:
+    """With a client configured the watcher asks it where a grab landed, rather
+    than matching the release title against folder names."""
+
+    async def test_the_client_path_is_used_even_when_no_folder_matches(
+        self, session: Session, configured: tuple[Path, Path]
+    ):
+        downloads, root = configured
+        # deliberately named nothing like the release
+        src = make_download(downloads, "zzz-unrecognisable", {"01.m4b": "x"})
+        book = standalone_book()
+        session.add(book)
+        session.commit()
+        entry = record_grab(session, book, book.asin, "A Release Name Nothing Like It")
+        assert entry is not None
+
+        with mock.patch.object(
+            watcher.download_client_config, "any_enabled", return_value=True
+        ), mock.patch.object(
+            watcher, "locate_via_client", new=mock.AsyncMock(return_value=(src, True))
+        ):
+            assert await watcher.scan(session, mock.MagicMock()) == 0  # first sighting
+            assert await watcher.scan(session, mock.MagicMock()) == 1
+
+        assert (root / "Andy Weir" / "The Martian" / "01.m4b").exists()
+
+    async def test_a_client_reporting_in_progress_blocks_the_folder_fallback(
+        self, session: Session, configured: tuple[Path, Path]
+    ):
+        """Otherwise a half written download could be matched by name and
+        organized before it has finished."""
+        downloads, _ = configured
+        _ = make_download(downloads, "andy weir - the martian", {"01.m4b": "x"})
+        book = standalone_book()
+        session.add(book)
+        session.commit()
+        _ = record_grab(session, book, book.asin, "andy weir - the martian")
+
+        with mock.patch.object(
+            watcher.download_client_config, "any_enabled", return_value=True
+        ), mock.patch.object(
+            watcher, "locate_via_client", new=mock.AsyncMock(return_value=(None, True))
+        ):
+            assert await watcher.scan(session, mock.MagicMock()) == 0
+            assert await watcher.scan(session, mock.MagicMock()) == 0
+
+    async def test_a_client_with_no_record_falls_back_to_folder_matching(
+        self, session: Session, configured: tuple[Path, Path]
+    ):
+        downloads, root = configured
+        _ = make_download(downloads, "andy weir - the martian", {"01.m4b": "x"})
+        book = standalone_book()
+        session.add(book)
+        session.commit()
+        _ = record_grab(session, book, book.asin, "andy weir - the martian")
+
+        with mock.patch.object(
+            watcher.download_client_config, "any_enabled", return_value=True
+        ), mock.patch.object(
+            watcher, "locate_via_client", new=mock.AsyncMock(return_value=(None, False))
+        ):
+            _ = await watcher.scan(session, mock.MagicMock())
+            assert await watcher.scan(session, mock.MagicMock()) == 1
+
+        assert (root / "Andy Weir" / "The Martian" / "01.m4b").exists()
+
+    async def test_without_a_client_session_nothing_changes(
+        self, session: Session, configured: tuple[Path, Path]
+    ):
+        downloads, root = configured
+        _ = make_download(downloads, "andy weir - the martian", {"01.m4b": "x"})
+        book = standalone_book()
+        session.add(book)
+        session.commit()
+        _ = record_grab(session, book, book.asin, "andy weir - the martian")
+
+        _ = await watcher.scan(session)
+        assert await watcher.scan(session) == 1
 
 
 class TestBookLookup:

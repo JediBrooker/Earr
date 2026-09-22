@@ -17,6 +17,8 @@ def record_grab(
     book: Audiobook | ManualBookRequest,
     asin_or_uuid: str,
     release_title: str | None,
+    client_id: str | None = None,
+    protocol: str | None = None,
 ) -> LibraryImport | None:
     """Queues a started download for the library watcher to pick up.
 
@@ -36,6 +38,8 @@ def record_grab(
         # a re-grab replaces what the watcher is looking for
         existing.release_title = release_title or book.title
         existing.book_title = book.title
+        existing.client_id = client_id
+        existing.protocol = protocol
         session.add(existing)
         session.commit()
         return existing
@@ -44,6 +48,8 @@ def record_grab(
         asin_or_uuid=asin_or_uuid,
         book_title=book.title,
         release_title=release_title or book.title,
+        client_id=client_id,
+        protocol=protocol,
     )
     session.add(entry)
     session.commit()

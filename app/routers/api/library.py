@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Annotated
 
+from aiohttp import ClientSession
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Security
 from pydantic import BaseModel
 from sqlmodel import Session, col, desc, select
@@ -17,6 +18,7 @@ from app.internal.models import (
     LibraryImport,
     LibraryImportStatusEnum,
 )
+from app.util.connection import get_connection
 from app.util.db import get_session
 
 router = APIRouter(prefix="/library", tags=["Library"])
@@ -41,8 +43,9 @@ class ScanResult(BaseModel):
 
 
 @router.post("/scan", response_model=ScanResult)
-def scan_now(
+async def scan_now(
     session: Annotated[Session, Depends(get_session)],
+    client_session: Annotated[ClientSession, Depends(get_connection)],
     background_task: BackgroundTasks,
     _: Annotated[DetailedUser, Security(AnyAuth(GroupEnum.admin))],
 ):
@@ -52,7 +55,7 @@ def scan_now(
     except LibraryMisconfigured as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    imported = scan(session)
+    imported = await scan(session, client_session)
     if imported and abs_config.is_valid(session):
         background_task.add_task(background_abs_trigger_scan)
     return ScanResult(imported=imported)

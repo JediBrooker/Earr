@@ -1,10 +1,12 @@
 from typing import Annotated
 
+from aiohttp import ClientSession
 from fastapi import APIRouter, Depends, HTTPException, Response, Security
 from pydantic import BaseModel
 from sqlmodel import Session
 
 from app.internal.auth.authentication import AnyAuth, DetailedUser
+from app.internal.download_clients.config import download_client_config
 from app.internal.library.config import MIN_SCAN_INTERVAL, library_config
 from app.internal.library.naming import (
     TEMPLATE_EXAMPLES,
@@ -14,9 +16,20 @@ from app.internal.library.naming import (
 )
 from app.internal.library.scheduler import reschedule
 from app.internal.models import GroupEnum, OrganizeModeEnum
+from app.util.connection import get_connection
 from app.util.db import get_session
 
 router = APIRouter(prefix="/library")
+
+
+class DownloadClientSettings(BaseModel):
+    qbit_enabled: bool
+    qbit_url: str
+    qbit_username: str
+    qbit_password_set: bool
+    sab_enabled: bool
+    sab_url: str
+    sab_api_key_set: bool
 
 
 class LibrarySettings(BaseModel):
@@ -29,6 +42,7 @@ class LibrarySettings(BaseModel):
     match_threshold: int
     overwrite: bool
     write_metadata: bool
+    download_clients: DownloadClientSettings
 
 
 def read_settings(session: Session) -> LibrarySettings:
@@ -44,6 +58,16 @@ def read_settings(session: Session) -> LibrarySettings:
         match_threshold=library_config.get_match_threshold(session),
         overwrite=library_config.get_overwrite(session),
         write_metadata=library_config.get_write_metadata(session),
+        download_clients=DownloadClientSettings(
+            qbit_enabled=download_client_config.get_qbit_enabled(session),
+            qbit_url=download_client_config.get_qbit_url(session) or "",
+            qbit_username=download_client_config.get_qbit_username(session),
+            # never send secrets back out, only whether one is stored
+            qbit_password_set=bool(download_client_config.get_qbit_password(session)),
+            sab_enabled=download_client_config.get_sab_enabled(session),
+            sab_url=download_client_config.get_sab_url(session) or "",
+            sab_api_key_set=bool(download_client_config.get_sab_api_key(session)),
+        ),
     )
 
 
@@ -120,3 +144,57 @@ def update_library_settings(
     reschedule(library_config.get_scan_interval(session))
 
     return Response(status_code=204)
+
+
+class UpdateDownloadClients(BaseModel):
+    qbit_enabled: bool = False
+    qbit_url: str = ""
+    qbit_username: str = ""
+    qbit_password: str | None = None
+    """Left out to keep the stored password."""
+    sab_enabled: bool = False
+    sab_url: str = ""
+    sab_api_key: str | None = None
+    """Left out to keep the stored key."""
+
+
+@router.put("/download-clients", status_code=204)
+def update_download_clients(
+    body: UpdateDownloadClients,
+    session: Annotated[Session, Depends(get_session)],
+    _: Annotated[DetailedUser, Security(AnyAuth(GroupEnum.admin))],
+):
+    if body.qbit_enabled and not body.qbit_url.strip():
+        raise HTTPException(status_code=422, detail="qBittorrent URL is required")
+    if body.sab_enabled and not body.sab_url.strip():
+        raise HTTPException(status_code=422, detail="SABnzbd URL is required")
+
+    download_client_config.set_qbit_enabled(session, body.qbit_enabled)
+    download_client_config.set_qbit_url(session, body.qbit_url)
+    download_client_config.set_qbit_username(session, body.qbit_username)
+    if body.qbit_password is not None:
+        download_client_config.set_qbit_password(session, body.qbit_password)
+
+    download_client_config.set_sab_enabled(session, body.sab_enabled)
+    download_client_config.set_sab_url(session, body.sab_url)
+    if body.sab_api_key is not None:
+        download_client_config.set_sab_api_key(session, body.sab_api_key)
+
+    return Response(status_code=204)
+
+
+class ClientTestResult(BaseModel):
+    client: str
+    ok: bool
+    message: str
+
+
+@router.post("/download-clients/test", response_model=list[ClientTestResult])
+async def test_download_clients(
+    session: Annotated[Session, Depends(get_session)],
+    client_session: Annotated[ClientSession, Depends(get_connection)],
+    _: Annotated[DetailedUser, Security(AnyAuth(GroupEnum.admin))],
+):
+    """Checks each configured client is reachable and the credentials work."""
+    results = await download_client_config.test_all(session, client_session)
+    return [ClientTestResult(client=n, ok=ok, message=m) for n, ok, m in results]

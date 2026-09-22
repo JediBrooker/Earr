@@ -1,0 +1,82 @@
+{#def
+    settings: DownloadClientSettings,
+#}
+
+<div class="flex flex-col gap-2">
+    <h3 class="text-base">
+        Download clients
+    </h3>
+    <p class="text-xs opacity-60">
+        Optional, but much more reliable. Without one, a finished download is found by matching the
+        release name against folder names, which fails when the client renames the folder. With one,
+        Earr asks the client exactly where it put the files, and knows when a download is still
+        running or has failed rather than guessing.
+    </p>
+
+    <form class="flex flex-col gap-2"
+          hx-put="{{ base_url }}/settings/library/hx-download-clients"
+          hx-disabled-elt="#dc-save">
+        <div class="w-full flex items-center justify-between gap-2 border-t pt-3 border-base-200">
+            <label for="qbit-enabled" class="font-semibold">
+                qBittorrent <span class="text-xs font-normal opacity-60">(torrents)</span>
+            </label>
+            <input id="qbit-enabled"
+                   name="qbit_enabled"
+                   type="checkbox"
+                   class="checkbox"
+                   {% if settings.qbit_enabled %}checked{% endif %} />
+        </div>
+        <input name="qbit_url"
+               type="text"
+               value="{{ settings.qbit_url }}"
+               placeholder="http://192.168.0.102:8080"
+               class="input w-full" />
+        <div class="flex gap-2">
+            <input name="qbit_username"
+                   type="text"
+                   value="{{ settings.qbit_username }}"
+                   placeholder="username (blank if the host is whitelisted)"
+                   class="input w-full" />
+            <input name="qbit_password"
+                   type="password"
+                   {% if settings.qbit_password_set %}placeholder="●●●●●●●● (unchanged)"{% else %}placeholder="password"{% endif %}
+                   class="input w-full" />
+        </div>
+
+        <div class="w-full flex items-center justify-between gap-2 border-t pt-3 border-base-200">
+            <label for="sab-enabled" class="font-semibold">
+                SABnzbd <span class="text-xs font-normal opacity-60">(usenet)</span>
+            </label>
+            <input id="sab-enabled"
+                   name="sab_enabled"
+                   type="checkbox"
+                   class="checkbox"
+                   {% if settings.sab_enabled %}checked{% endif %} />
+        </div>
+        <input name="sab_url"
+               type="text"
+               value="{{ settings.sab_url }}"
+               placeholder="http://192.168.0.103:8080"
+               class="input w-full" />
+        <input name="sab_api_key"
+               type="password"
+               {% if settings.sab_api_key_set %}placeholder="●●●●●●●● (unchanged)"{% else %}placeholder="API key"{% endif %}
+               class="input w-full" />
+
+        <div class="flex gap-2 pt-2">
+            <button id="dc-save" class="btn btn-primary">
+                Save
+            </button>
+            <button type="button"
+                    class="btn"
+                    hx-post="{{ base_url }}/settings/library/hx-test-download-clients"
+                    hx-disabled-elt="this">
+                Test connection
+            </button>
+        </div>
+        <p class="text-xs opacity-60">
+            Leave a password or API key blank to keep the stored one. Paths must look the same to Earr
+            as they do to the client, which for Docker means mounting them the same way in both.
+        </p>
+    </form>
+</div>

@@ -311,6 +311,10 @@ class LibraryImport(BaseSQLModel, table=True):
     book_title: str
     release_title: str
     """Title of the grabbed source. Download clients usually name the folder after it."""
+    client_id: str | None = None
+    """Torrent info hash, so the download client can be asked about it directly."""
+    protocol: str | None = None
+    """torrent or usenet, to decide which client to ask."""
     status: LibraryImportStatusEnum = Field(
         default=LibraryImportStatusEnum.pending,
         index=True,

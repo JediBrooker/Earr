@@ -1,6 +1,14 @@
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Security
+from aiohttp import ClientSession
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    Form,
+    HTTPException,
+    Security,
+)
 from sqlmodel import Session, col, desc, select
 
 from app.internal.auth.authentication import EarrAuth, DetailedUser
@@ -16,12 +24,20 @@ from app.internal.library.scheduler import lifespan
 from app.internal.models import GroupEnum, LibraryImport, OrganizeModeEnum
 from app.routers.api.library import scan_now as api_scan_now
 from app.routers.api.settings.library import (
+    UpdateDownloadClients,
     UpdateLibrarySettings,
     read_settings,
 )
 from app.routers.api.settings.library import (
+    test_download_clients as api_test_download_clients,
+)
+from app.routers.api.settings.library import (
+    update_download_clients as api_update_download_clients,
+)
+from app.routers.api.settings.library import (
     update_library_settings as api_update_library_settings,
 )
+from app.util.connection import get_connection
 from app.util.db import get_session
 from app.util.templates import catalog_response
 from app.util.toast import ToastException
@@ -116,15 +132,18 @@ def preview_template(
 
 
 @router.post("/hx-scan")
-def scan_now(
+async def scan_now(
     background_task: BackgroundTasks,
     session: Annotated[Session, Depends(get_session)],
+    client_session: Annotated[ClientSession, Depends(get_connection)],
     admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     if not library_config.get_enabled(session):
         raise ToastException("Enable the library organizer first", "error")
     try:
-        result = api_scan_now(session, background_task, admin_user)
+        result = await api_scan_now(
+            session, client_session, background_task, admin_user
+        )
     except HTTPException as e:
         raise ToastException(str(e.detail), "error") from None
 
@@ -135,3 +154,51 @@ def scan_now(
         "success",
         cause_refresh=True,
     )
+
+
+@router.put("/hx-download-clients")
+def update_download_clients(
+    qbit_url: Annotated[str, Form()],
+    qbit_username: Annotated[str, Form()],
+    qbit_password: Annotated[str, Form()],
+    sab_url: Annotated[str, Form()],
+    sab_api_key: Annotated[str, Form()],
+    session: Annotated[Session, Depends(get_session)],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
+    qbit_enabled: Annotated[bool, Form()] = False,
+    sab_enabled: Annotated[bool, Form()] = False,
+):
+    try:
+        api_update_download_clients(
+            UpdateDownloadClients(
+                qbit_enabled=qbit_enabled,
+                qbit_url=qbit_url,
+                qbit_username=qbit_username,
+                # an empty box means "leave the stored secret alone"
+                qbit_password=qbit_password or None,
+                sab_enabled=sab_enabled,
+                sab_url=sab_url,
+                sab_api_key=sab_api_key or None,
+            ),
+            session,
+            admin_user,
+        )
+    except HTTPException as e:
+        raise ToastException(str(e.detail), "error") from None
+
+    raise ToastException("Download clients updated", "success", cause_refresh=True)
+
+
+@router.post("/hx-test-download-clients")
+async def test_download_clients(
+    session: Annotated[Session, Depends(get_session)],
+    client_session: Annotated[ClientSession, Depends(get_connection)],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
+):
+    results = await api_test_download_clients(session, client_session, admin_user)
+    if not results:
+        raise ToastException("No download client is enabled", "info")
+
+    failed = [r for r in results if not r.ok]
+    summary = "; ".join(f"{r.client}: {r.message}" for r in results)
+    raise ToastException(summary, "error" if failed else "success")

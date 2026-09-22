@@ -12,10 +12,13 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from rapidfuzz import fuzz, utils
+from aiohttp import ClientSession
 from sqlmodel import Session, col, desc, select
 
 from app.internal.audiobookshelf.client import background_abs_trigger_scan
 from app.internal.audiobookshelf.config import abs_config
+from app.internal.download_clients.abstract import DownloadState
+from app.internal.download_clients.config import download_client_config
 from app.internal.library.config import DEFAULT_PENDING_TTL_DAYS, library_config
 from app.internal.library.metadata import write_metadata
 from app.internal.library.organizer import (
@@ -148,6 +151,73 @@ def _forget_gone(candidates: list[Path]) -> None:
             del _seen_sizes[key]
 
 
+async def locate_via_client(
+    session: Session,
+    client_session: ClientSession,
+    entry: LibraryImport,
+) -> tuple[Path | None, bool]:
+    """Asks the download client where a grab ended up.
+
+    Returns the path and whether the client had an opinion at all. A client
+    that has never heard of the job leaves the caller free to fall back to
+    matching folder names, but one that reports it as still downloading or
+    failed is authoritative and stops the fallback guessing wrong.
+    """
+    clients = download_client_config.clients_for(session, entry.protocol)
+    for client in clients:
+        info = await client.find(
+            client_session, client_id=entry.client_id, name=entry.release_title
+        )
+        if info is None:
+            continue
+
+        if info.state == DownloadState.failed:
+            logger.info(
+                "Library: download client reports a failed download",
+                client=client.name,
+                release_title=entry.release_title,
+                error=info.error,
+            )
+            return None, True
+
+        if info.state == DownloadState.downloading:
+            logger.debug(
+                "Library: still downloading",
+                client=client.name,
+                release_title=entry.release_title,
+                progress=round(info.progress, 3),
+            )
+            return None, True
+
+        if not info.path:
+            logger.warning(
+                "Library: client reported a finished download with no path",
+                client=client.name,
+                release_title=entry.release_title,
+            )
+            return None, True
+
+        path = Path(info.path)
+        if not path.exists():
+            # the client's view of the filesystem can differ from ours when
+            # the paths are mounted differently in each container
+            logger.warning(
+                "Library: the path the client reported does not exist here",
+                client=client.name,
+                path=info.path,
+            )
+            return None, False
+
+        logger.debug(
+            "Library: located download via client",
+            client=client.name,
+            path=info.path,
+        )
+        return path, True
+
+    return None, False
+
+
 def expire_stale_imports(session: Session) -> int:
     """Stops looking for downloads that never showed up."""
     cutoff = datetime.now() - timedelta(days=DEFAULT_PENDING_TTL_DAYS)
@@ -215,8 +285,12 @@ def import_single(session: Session, entry: LibraryImport, source: Path) -> None:
     set_download_status(session, book, DownloadStatusEnum.downloaded)
 
 
-def scan(session: Session) -> int:
-    """Runs one pass over the completed downloads folder.
+async def scan(session: Session, client_session: ClientSession | None = None) -> int:
+    """Runs one pass, resolving each pending grab to a folder and organizing it.
+
+    A configured download client is asked first, since it knows exactly where it
+    put a job. Matching folder names is the fallback for when no client is
+    configured, or when it has no record of the grab.
 
     Returns how many downloads were organized.
     """
@@ -236,24 +310,34 @@ def scan(session: Session) -> int:
         return 0
 
     download_dir = library_config.get_download_dir(session)
-    if download_dir is None:
-        return 0
-    if not download_dir.is_dir():
+    candidates: list[Path] = []
+    if download_dir is not None and download_dir.is_dir():
+        candidates = sorted(download_dir.iterdir())
+        _forget_gone(candidates)
+    elif download_dir is not None:
         logger.warning(
             "Library: completed downloads folder does not exist",
             path=str(download_dir),
         )
-        return 0
 
-    candidates = sorted(download_dir.iterdir())
-    _forget_gone(candidates)
-    if not candidates:
-        return 0
-
+    use_clients = client_session is not None and download_client_config.any_enabled(
+        session
+    )
     threshold = library_config.get_match_threshold(session)
     imported = 0
+
     for entry in pending:
-        match = find_match(entry.release_title, candidates, threshold, entry.book_title)
+        match: Path | None = None
+        if use_clients and client_session is not None:
+            match, decided = await locate_via_client(session, client_session, entry)
+            if match is None and decided:
+                # the client knows about this job and it is not ready, so
+                # guessing at folder names would only find the wrong thing
+                continue
+        if match is None:
+            match = find_match(
+                entry.release_title, candidates, threshold, entry.book_title
+            )
         if match is None:
             continue
         if not is_stable(match):
@@ -264,7 +348,8 @@ def scan(session: Session) -> int:
         _ = _seen_sizes.pop(str(match), None)
         if entry.status == LibraryImportStatusEnum.imported:
             imported += 1
-            candidates.remove(match)
+            if match in candidates:
+                candidates.remove(match)
 
     return imported
 
@@ -297,7 +382,8 @@ async def scan_downloads() -> None:
     """Scheduled entry point. Never raises so the scheduler keeps running."""
     try:
         with next(get_session()) as session:
-            imported = scan(session)
+            async with ClientSession() as client_session:
+                imported = await scan(session, client_session)
             if not imported:
                 return
             logger.info("Library: organized downloads", count=imported)
