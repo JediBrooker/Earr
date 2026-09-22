@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Security
 from sqlmodel import Session
 
 from app.internal.audible.types import get_region_from_settings
-from app.internal.auth.authentication import ABRAuth, DetailedUser
+from app.internal.auth.authentication import EarrAuth, DetailedUser
 from app.internal.ranking.quality import quality_config
 from app.routers.api.recommendations import (
     get_user_recommendations as api_get_user_recommendations,
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/for-you")
 async def get_for_you_recommendations(
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
-    user: Annotated[DetailedUser, Security(ABRAuth())],
+    user: Annotated[DetailedUser, Security(EarrAuth())],
     page: int = 1,
     per_page: int = 10,
 ):

@@ -39,10 +39,10 @@ with next(get_session()) as session:
 
 
 app = FastAPI(
-    title="AudioBookRequest",
+    title="Earr",
     debug=Settings().app.debug,
     openapi_url="/openapi.json" if Settings().app.openapi_enabled else None,
-    description="API for AudiobookRequest",
+    description="API for Earr",
     middleware=[
         Middleware(DynamicSessionMiddleware, auth_secret, middleware_linker),
         Middleware(GZipMiddleware),

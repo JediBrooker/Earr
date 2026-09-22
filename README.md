@@ -1,8 +1,8 @@
-![GitHub Release](https://img.shields.io/github/v/release/markbeep/AudioBookRequest?style=for-the-badge)
-![Python Version](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fmarkbeep%2FAudioBookRequest%2Fmain%2Fpyproject.toml&style=for-the-badge&logo=python)
+![GitHub Release](https://img.shields.io/github/v/release/markbeep/Earr?style=for-the-badge)
+![Python Version](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fmarkbeep%2FEarr%2Fmain%2Fpyproject.toml&style=for-the-badge&logo=python)
 [![Discord](https://img.shields.io/discord/1350874252282171522?style=for-the-badge&logo=discord&link=https%3A%2F%2Fdiscord.gg%2FSsFRXWMg7s)](https://discord.gg/SsFRXWMg7s)
 
-![Header](/media/AudioBookRequestIcon.png)
+![Header](/media/EarrIcon.png)
 
 Your tool for handling audiobook requests on a Plex/Audiobookshelf/Jellyfin instance.
 
@@ -31,7 +31,7 @@ If you've heard of Overseer, Ombi, or Jellyseer; this is in the similar vein, <i
 
 # Motivation
 
-AudioBookRequest aims to be a simple and lightweight tool for managing audiobook requests for your media server. It should be easy to set up and use, while integrating nicely with other common tools in the \*arr stack. AudioBookRequest serves as as the frontend for you and your friends to easily make audiobook wishlists or create requests in an organized fashion.
+Earr aims to be a simple and lightweight tool for managing audiobook requests for your media server. It should be easy to set up and use, while integrating nicely with other common tools in the \*arr stack. Earr serves as as the frontend for you and your friends to easily make audiobook wishlists or create requests in an organized fashion.
 
 It is not intended as a full replacement for Readarr/Chaptarr, but instead intended to be used alongside them.
 
@@ -50,30 +50,30 @@ It is not intended as a full replacement for Readarr/Chaptarr, but instead inten
 
 ## Out of Scope Features
 
-- AudioBookRequest does **not** rename files nor edit metadata after downloads. Placing finished downloads into a folder structure is supported and opt-in, see [Organizing Downloads](#organizing-downloads), but everything beyond that is left to other tools. ABR also supports multiple REST API endpoints that allow for easy interoptability with scripts and other apps.
+- Earr does **not** rename files nor edit metadata after downloads. Placing finished downloads into a folder structure is supported and opt-in, see [Organizing Downloads](#organizing-downloads), but everything beyond that is left to other tools. Earr also supports multiple REST API endpoints that allow for easy interoptability with scripts and other apps.
   - Combinations:
-    - _Know of or have an app or script that works with ABR? Open an issue and I'll add it here or to the docs._
+    - _Know of or have an app or script that works with Earr? Open an issue and I'll add it here or to the docs._
   - Alternatives:
     - [Listenarr](https://github.com/Listenarrs/Listenarr): A more all-in-one approach with built-in file organization.
-    - _I'd love to add more alternatives for ABR here. If you know of any good ones, open an issue!_
+    - _I'd love to add more alternatives for Earr here. If you know of any good ones, open an issue!_
 
 ---
 
 # Getting Started
 
-AudioBookRequest is intended to be deployed using Docker or Kubernetes. For "bare-metal" deployments, read up on [local development](https://github.com/markbeep/AudioBookRequest/wiki/Local-Development) in the wiki.
+Earr is intended to be deployed using Docker or Kubernetes. For "bare-metal" deployments, read up on [local development](https://github.com/JediBrooker/Earr/wiki/Local-Development) in the wiki.
 
 ## Quick Start
 
 Run the image directly:
 
 ```bash
-docker run -p 8000:8000 -v $(pwd)/config:/config markbeep/audiobookrequest:1
+docker run -p 8000:8000 -v $(pwd)/config:/config jedibrooker/earr:1
 ```
 
 Then head to http://localhost:8000.
 
-**NOTE:** AudioBookRequest uses the `/config` directory inside the container for storing configs and data. Mount that directory locally somewhere to ensure persistent data across restarts.
+**NOTE:** Earr uses the `/config` directory inside the container for storing configs and data. Mount that directory locally somewhere to ensure persistent data across restarts.
 
 ## Basic Usage
 
@@ -88,7 +88,7 @@ Auto-downloading enables requests by `Trusted` and `Admin` users to directly sta
 
 1. Ensure your Prowlarr instance is correctly set up with any indexers and download clients you want. [More info](https://prowlarr.com/).
 2. On Prowlarr, head to `Settings>General` and copy the `API Key`.
-3. On AudioBookRequest, head to `Settings>Prowlarr` and enter the API key as well as the base URL of your Prowlarr instance, i.e. `https://prowlarr.example.com`.
+3. On Earr, head to `Settings>Prowlarr` and enter the API key as well as the base URL of your Prowlarr instance, i.e. `https://prowlarr.example.com`.
 4. Head to `Settings>Download` to configure the automatic download settings:
    1. Enable `Auto Download` at the top.
    2. The remaining heuristics determine the ranking of any sources retrieved from Prowlarr.
@@ -96,38 +96,38 @@ Auto-downloading enables requests by `Trusted` and `Admin` users to directly sta
 
 ### Audiobookshelf Integration
 
-Audiobookshelf (ABS) integration lets ABR:
+Audiobookshelf (ABS) integration lets Earr:
 
 - Check if a book already exists in your ABS library and mark it as downloaded in search results to avoid duplicate requests.
-- Trigger a library scan in ABS when a request is marked as downloaded in ABR (manual or automatic), so the new item appears quickly.
+- Trigger a library scan in ABS when a request is marked as downloaded in Earr (manual or automatic), so the new item appears quickly.
 
 Setup steps:
 
 1. In ABS, create an API token for an account with access to your audiobook library (Admin recommended).
-2. In ABR, go to Settings > Audiobookshelf and enter:
+2. In Earr, go to Settings > Audiobookshelf and enter:
 
 - Base URL of your ABS server (e.g. https://abs.example.com or http://localhost:13378)
 - API Token from step 1
 - Select the target Library
-- Enable “Use ABS to mark existing books as downloaded” if you want ABR to flag existing titles during search.
+- Enable “Use ABS to mark existing books as downloaded” if you want Earr to flag existing titles during search.
 
 Notes:
 
-- ABR searches ABS by ASIN and by “title + first author” to detect existing books; this is a best-effort match and may not catch every case depending on your metadata.
-- ABS is automatically asked to scan after successful downloads are marked in ABR. ABS typically auto-detects updates, but this helps pick up changes sooner.
+- Earr searches ABS by ASIN and by “title + first author” to detect existing books; this is a best-effort match and may not catch every case depending on your metadata.
+- ABS is automatically asked to scan after successful downloads are marked in Earr. ABS typically auto-detects updates, but this helps pick up changes sooner.
 
 ### Organizing Downloads
 
-ABR can place finished downloads into a folder structure of your choosing. This is off by default.
+Earr can place finished downloads into a folder structure of your choosing. This is off by default.
 
-Prowlarr hands grabs to your download client and never reports back, so ABR watches the folder your
+Prowlarr hands grabs to your download client and never reports back, so Earr watches the folder your
 download client writes finished downloads to and matches new items there against the releases it
-grabbed. Both folders therefore have to be mounted into the ABR container.
+grabbed. Both folders therefore have to be mounted into the Earr container.
 
 ```yaml
 services:
-  audiobookrequest:
-    image: markbeep/audiobookrequest:1
+  earr:
+    image: jedibrooker/earr:1
     volumes:
       - ./config:/config
       # the same paths your download client uses, so hardlinks work
@@ -188,7 +188,7 @@ The settings page previews both cases while you type. File names inside the fold
 With **Write metadata.json** enabled (the default), the title, subtitle, authors, narrators, series
 and ASIN are written into the organized folder as a `metadata.json`. Audiobookshelf reads that file
 and prefers it over what it can infer from file and folder names, so a release with messy file names
-still ends up with the right metadata. Only fields ABR actually knows are written, and an existing
+still ends up with the right metadata. Only fields Earr actually knows are written, and an existing
 `metadata.json` is left alone unless **Overwrite existing files** is on, so anything corrected by
 hand in ABS survives a re-import.
 
@@ -203,11 +203,11 @@ Notes:
 
 ### OpenID Connect
 
-Head to the [OpenID Connect](https://github.com/markbeep/AudioBookRequest/wiki/OpenID-Connect) page in the wiki to learn how to set up OIDC authentication with your favorite auth provider.
+Head to the [OpenID Connect](https://github.com/JediBrooker/Earr/wiki/OpenID-Connect) page in the wiki to learn how to set up OIDC authentication with your favorite auth provider.
 
 ### Environment Variables
 
-Head to the [environment variables](https://github.com/markbeep/AudioBookRequest/wiki/Environment-Variables) page in the wiki.
+Head to the [environment variables](https://github.com/JediBrooker/Earr/wiki/Environment-Variables) page in the wiki.
 
 ---
 
@@ -221,11 +221,11 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org) to
 
 ## Local Development
 
-Head to the [local development](https://github.com/markbeep/AudioBookRequest/wiki/Local-Development) page in the wiki.
+Head to the [local development](https://github.com/JediBrooker/Earr/wiki/Local-Development) page in the wiki.
 
 # Tools
 
-AudioBookRequest builds on top of a some other great open-source tools. A big thanks goes out to these developers.
+Earr builds on top of a some other great open-source tools. A big thanks goes out to these developers.
 
 - [Prowlarr](https://github.com/Prowlarr/Prowlarr) - Does a lot of the heavy lifting concerning searching through indexers and forwarding download requests to download clients. Saves me the ordeal of having to reimplement everything again.
 - [External Audible API](https://audible.readthedocs.io/en/latest/misc/external_api.html) - Audible exposes key API endpoints which are used to, for example, search for books.

@@ -1,5 +1,5 @@
 [project]
-name = "AudioBookRequest"
+name = "Earr"
 version = "1.10.7"
 requires-python = ">= 3.14"
 readme = "README.md"

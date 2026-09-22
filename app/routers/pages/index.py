@@ -7,7 +7,7 @@ from sqlalchemy.sql.functions import count
 from sqlmodel import Session, select
 
 from app.internal.audible.types import audible_region_type, get_region_from_settings
-from app.internal.auth.authentication import ABRAuth, DetailedUser
+from app.internal.auth.authentication import EarrAuth, DetailedUser
 from app.internal.models import AudiobookRequest, AudiobookWithRequests
 from app.internal.ranking.quality import quality_config
 from app.routers.api.recommendations import (
@@ -40,7 +40,7 @@ router = APIRouter()
 
 @router.get("/")
 def read_root(
-    user: Annotated[DetailedUser, Security(ABRAuth())],
+    user: Annotated[DetailedUser, Security(EarrAuth())],
     session: Annotated[Session, Depends(get_session)],
 ):
     # no need to show the popular tab if there are no requests from other users
@@ -63,7 +63,7 @@ def read_root(
 async def get_user_recommendations(
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
-    user: Annotated[DetailedUser, Security(ABRAuth())],
+    user: Annotated[DetailedUser, Security(EarrAuth())],
     seed_asins: Annotated[list[str] | None, Query(alias="seed_asins")] = None,
     limit: int = 20,
 ):
@@ -91,7 +91,7 @@ async def get_user_recommendations(
 @router.get("/hx-popular")
 async def get_popular_recommendations(
     session: Annotated[Session, Depends(get_session)],
-    user: Annotated[DetailedUser, Security(ABRAuth())],
+    user: Annotated[DetailedUser, Security(EarrAuth())],
     min_requests: int = 1,
     limit: int = 10,
     exclude_downloaded: bool = True,
@@ -120,7 +120,7 @@ async def get_popular_recommendations(
 async def get_category_recommendations(
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
-    user: Annotated[DetailedUser, Security(ABRAuth())],
+    user: Annotated[DetailedUser, Security(EarrAuth())],
     audible_region: audible_region_type | None = None,
 ):
     result = await api_get_category_recommendations(
@@ -157,7 +157,7 @@ class _AudiobookReasonWrapper(BaseModel):
 @router.get("/hx-recent")
 async def get_recently_requested_recommendations(
     session: Annotated[Session, Depends(get_session)],
-    user: Annotated[DetailedUser, Security(ABRAuth())],
+    user: Annotated[DetailedUser, Security(EarrAuth())],
     limit: int = 10,
     days_back: int = 30,
     exclude_downloaded: bool = True,
@@ -190,7 +190,7 @@ async def get_recently_requested_recommendations(
 async def get_fallback_recommendations(
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
-    user: Annotated[DetailedUser, Security(ABRAuth())],
+    user: Annotated[DetailedUser, Security(EarrAuth())],
     limit: int = 10,
     audible_region: audible_region_type | None = None,
 ):
@@ -226,7 +226,7 @@ async def get_fallback_recommendations(
 async def get_popular_authors_recommendations(
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
-    user: Annotated[DetailedUser, Security(ABRAuth())],
+    user: Annotated[DetailedUser, Security(EarrAuth())],
     limit: int = 10,
     exclude_downloaded: bool = True,
     audible_region: audible_region_type | None = None,
@@ -263,7 +263,7 @@ async def get_popular_authors_recommendations(
 async def get_popular_narrators_recommendations(
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
-    user: Annotated[DetailedUser, Security(ABRAuth())],
+    user: Annotated[DetailedUser, Security(EarrAuth())],
     limit: int = 10,
     exclude_downloaded: bool = True,
     audible_region: audible_region_type | None = None,

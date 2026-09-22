@@ -6,7 +6,7 @@ from sqlmodel import Session
 
 from app.internal.audiobookshelf.client import background_abs_trigger_scan
 from app.internal.audiobookshelf.config import abs_config
-from app.internal.auth.authentication import ABRAuth, DetailedUser
+from app.internal.auth.authentication import EarrAuth, DetailedUser
 from app.internal.db_queries import get_all_manual_requests, get_wishlist_counts
 from app.internal.models import GroupEnum
 from app.routers.api.requests import delete_manual_request, mark_manual_downloaded
@@ -19,7 +19,7 @@ router = APIRouter(prefix="/manual")
 @router.get("")
 async def manual(
     session: Annotated[Session, Depends(get_session)],
-    user: Annotated[DetailedUser, Security(ABRAuth())],
+    user: Annotated[DetailedUser, Security(EarrAuth())],
 ):
     results = get_all_manual_requests(session, user)
     counts = get_wishlist_counts(session, user)
@@ -36,7 +36,7 @@ async def downloaded_manual(
     id: uuid.UUID,
     session: Annotated[Session, Depends(get_session)],
     background_task: BackgroundTasks,
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     await mark_manual_downloaded(id, session, background_task, admin_user)
 
@@ -59,7 +59,7 @@ async def downloaded_manual(
 async def delete_manual(
     id: uuid.UUID,
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     await delete_manual_request(id, session, admin_user)
 

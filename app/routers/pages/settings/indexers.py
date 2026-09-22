@@ -8,7 +8,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import APIRouter, Depends, FastAPI, Form, Request, Security
 from sqlmodel import Session
 
-from app.internal.auth.authentication import ABRAuth, DetailedUser
+from app.internal.auth.authentication import EarrAuth, DetailedUser
 from app.internal.indexers.abstract import SessionContainer
 from app.internal.indexers.configuration import indexer_configuration_cache
 from app.internal.indexers.indexer_util import (
@@ -104,7 +104,7 @@ async def read_indexer_file(
 async def read_indexers(
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     file_path = indexer_config.get(session, "indexers_configuration_file")
     if file_path:
@@ -134,7 +134,7 @@ async def read_file_configuration(
     file_path: Annotated[str, Form()],
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     _ = admin_user
     if file_path.strip() == "":
@@ -157,7 +157,7 @@ async def update_indexers(
     indexer_select: Annotated[str, Form()],
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     _ = admin_user
     values = dict(await request.form())

@@ -8,6 +8,4 @@ async def get_connection():
         yield session
 
 
-USER_AGENT = (
-    f"ABR/{Settings().app.version} (+https://github.com/markbeep/AudioBookRequest)"
-)
+USER_AGENT = f"Earr/{Settings().app.version} (+https://github.com/JediBrooker/Earr)"

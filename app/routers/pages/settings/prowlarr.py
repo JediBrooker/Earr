@@ -4,7 +4,7 @@ from aiohttp import ClientSession
 from fastapi import APIRouter, Depends, Form, Response, Security
 from sqlmodel import Session
 
-from app.internal.auth.authentication import ABRAuth, DetailedUser
+from app.internal.auth.authentication import EarrAuth, DetailedUser
 from app.internal.models import GroupEnum
 from app.internal.prowlarr.indexer_categories import indexer_categories
 from app.internal.prowlarr.prowlarr import get_indexers
@@ -34,7 +34,7 @@ router = APIRouter(prefix="/prowlarr")
 async def read_prowlarr(
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
     prowlarr_misconfigured: object | None = None,
 ):
     prowlarr_base_url = prowlarr_config.get_base_url(session)
@@ -61,7 +61,7 @@ async def read_prowlarr(
 def update_prowlarr_api_key(
     api_key: Annotated[str, Form()],
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     api_update_prowlarr_api_key(UpdateApiKey(api_key=api_key), session, admin_user)
     return Response(status_code=204, headers={"HX-Refresh": "true"})
@@ -71,7 +71,7 @@ def update_prowlarr_api_key(
 def update_prowlarr_base_url(
     base_url: Annotated[str, Form()],
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     api_update_prowlarr_base_url(UpdateBaseUrl(base_url=base_url), session, admin_user)
     return Response(status_code=204, headers={"HX-Refresh": "true"})
@@ -80,7 +80,7 @@ def update_prowlarr_base_url(
 @router.put("/hx-category")
 def update_indexer_categories(
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
     categories: Annotated[list[int] | None, Form(alias="c")] = None,
 ):
     if categories is None:
@@ -107,7 +107,7 @@ def update_indexer_categories(
 async def update_selected_indexers(
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
     indexer_ids: Annotated[list[int] | None, Form(alias="i")] = None,
 ):
     _ = admin_user

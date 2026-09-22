@@ -12,8 +12,8 @@ class DBSettings(BaseModel):
     use_postgres: bool = False
     postgres_host: str = "localhost"
     postgres_port: int = 5432
-    postgres_db: str = "audiobookrequest"
-    postgres_user: str = "abr"
+    postgres_db: str = "earr"
+    postgres_user: str = "earr"
     postgres_password: str = "password"
     postgres_ssl_mode: str = "prefer"
 
@@ -55,7 +55,7 @@ class ApplicationSettings(BaseModel):
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(  # pyright: ignore[reportUnannotatedClassAttribute]
-        env_prefix="ABR_",
+        env_prefix="EARR_",
         env_nested_delimiter="__",
         nested_model_default_partial_update=True,
         env_file=(".env.local", ".env"),

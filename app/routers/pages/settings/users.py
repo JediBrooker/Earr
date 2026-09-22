@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Form, HTTPException, Security
 from sqlmodel import Session, select
 
-from app.internal.auth.authentication import ABRAuth, DetailedUser
+from app.internal.auth.authentication import EarrAuth, DetailedUser
 from app.internal.auth.config import auth_config
 from app.internal.auth.login_types import LoginTypeEnum
 from app.internal.models import GroupEnum, User
@@ -30,7 +30,7 @@ router = APIRouter(prefix="/users")
 @router.get("")
 def read_users(
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     users = session.exec(select(User)).all()
     is_oidc = auth_config.get_login_type(session) == LoginTypeEnum.oidc
@@ -49,7 +49,7 @@ def create_new_user(
     password: Annotated[str, Form()],
     group: Annotated[str, Form()],
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     if username.strip() == "":
         raise ToastException("Invalid username", "error")
@@ -87,7 +87,7 @@ def create_new_user(
 def delete_user(
     username: str,
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     try:
         api_delete_user(username, session, admin_user)
@@ -109,7 +109,7 @@ def delete_user(
 def update_user(
     username: str,
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
     group: Annotated[GroupEnum | None, Form()] = None,
     extra_data: Annotated[str | None, Form()] = None,
 ):

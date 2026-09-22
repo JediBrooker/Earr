@@ -72,12 +72,12 @@ jobs:
           uv run alembic upgrade heads
           uv run alembic check
         env:
-          ABR_DB__POSTGRES_HOST: localhost
-          ABR_DB__POSTGRES_PORT: 5432
-          ABR_DB__POSTGRES_USER: postgres
-          ABR_DB__POSTGRES_PASSWORD: postgres
-          ABR_DB__POSTGRES_DB: postgres
-          ABR_DB__USE_POSTGRES: true
+          EARR_DB__POSTGRES_HOST: localhost
+          EARR_DB__POSTGRES_PORT: 5432
+          EARR_DB__POSTGRES_USER: postgres
+          EARR_DB__POSTGRES_PASSWORD: postgres
+          EARR_DB__POSTGRES_DB: postgres
+          EARR_DB__USE_POSTGRES: true
 
   build:
     needs: test
@@ -110,10 +110,10 @@ jobs:
             MAJOR=$(echo $VERSION | cut -d. -f1)
             MINOR=$(echo $VERSION | cut -d. -f2)
             PATCH=$(echo $VERSION | cut -d. -f3)
-            echo "tags=${{ secrets.DOCKER_HUB_USERNAME }}/audiobookrequest:$VERSION,${{ secrets.DOCKER_HUB_USERNAME }}/audiobookrequest:$MAJOR.$MINOR,${{ secrets.DOCKER_HUB_USERNAME }}/audiobookrequest:$MAJOR,${{ secrets.DOCKER_HUB_USERNAME }}/audiobookrequest:latest" >> $GITHUB_OUTPUT
+            echo "tags=${{ secrets.DOCKER_HUB_USERNAME }}/earr:$VERSION,${{ secrets.DOCKER_HUB_USERNAME }}/earr:$MAJOR.$MINOR,${{ secrets.DOCKER_HUB_USERNAME }}/earr:$MAJOR,${{ secrets.DOCKER_HUB_USERNAME }}/earr:latest" >> $GITHUB_OUTPUT
             echo "version=$VERSION" >> $GITHUB_OUTPUT
           else
-            echo "tags=${{ secrets.DOCKER_HUB_USERNAME }}/audiobookrequest:nightly" >> $GITHUB_OUTPUT
+            echo "tags=${{ secrets.DOCKER_HUB_USERNAME }}/earr:nightly" >> $GITHUB_OUTPUT
             github_sha_hash=${{ github.sha }}
             echo "version=nightly:${github_sha_hash:0:7}" >> $GITHUB_OUTPUT
           fi

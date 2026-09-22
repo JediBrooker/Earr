@@ -3,7 +3,7 @@
 #}
 
 {# Admin initialization page #}
-<BaseLayout title="Initialize ABR" hide_navbar>
+<BaseLayout title="Initialize Earr" hide_navbar>
 {% block head %}
     <title>Initialize admin user</title>
 {% endblock head %}
@@ -42,7 +42,7 @@
             {% if force_login_type %}
                 <p class="text-xs opacity-60">
                     Login type is forced by the environment variable
-                    <code>ABR_APP__FORCE_LOGIN_TYPE</code>.
+                    <code>EARR_APP__FORCE_LOGIN_TYPE</code>.
                 </p>
                 <input type="hidden" name="login_type" value="{{ force_login_type.value }}" />
             {% endif %}

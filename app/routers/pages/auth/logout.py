@@ -11,7 +11,7 @@ from fastapi import (
 from sqlmodel import Session
 
 from app.internal.auth.authentication import (
-    ABRAuth,
+    EarrAuth,
     DetailedUser,
 )
 from app.internal.auth.config import auth_config
@@ -26,7 +26,7 @@ router = APIRouter(prefix="/logout")
 async def logout(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    _: Annotated[DetailedUser, Security(ABRAuth())],
+    _: Annotated[DetailedUser, Security(EarrAuth())],
 ):
     request.session["sub"] = ""
 

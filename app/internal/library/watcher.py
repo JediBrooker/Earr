@@ -1,6 +1,6 @@
 """Watches the completed downloads folder and organizes finished grabs.
 
-AudioBookRequest hands a grab to Prowlarr and never hears back from the
+Earr hands a grab to Prowlarr and never hears back from the
 download client, so a pending `LibraryImport` row is matched against the
 directory names inside the completed downloads folder instead. Download clients
 name that directory after the release, which is what was grabbed.

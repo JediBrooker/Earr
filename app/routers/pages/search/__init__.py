@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query, Security
 from sqlmodel import Session
 
 from app.internal.audible.types import audible_region_type, get_region_from_settings
-from app.internal.auth.authentication import ABRAuth, DetailedUser
+from app.internal.auth.authentication import EarrAuth, DetailedUser
 from app.internal.models import GroupEnum
 from app.internal.prowlarr.util import prowlarr_config
 from app.internal.ranking.quality import quality_config
@@ -28,7 +28,7 @@ router.include_router(manual.router)
 async def read_search(
     client_session: Annotated[ClientSession, Depends(get_connection)],
     session: Annotated[Session, Depends(get_session)],
-    user: Annotated[DetailedUser, Security(ABRAuth())],
+    user: Annotated[DetailedUser, Security(EarrAuth())],
     query: Annotated[str | None, Query(alias="q")] = None,
     num_results: int = 20,
     page: int = 0,
@@ -72,7 +72,7 @@ async def read_search(
 @router.get("/hx-suggestions")
 async def search_suggestions(
     query: Annotated[str, Query(alias="q")],
-    user: Annotated[DetailedUser, Security(ABRAuth())],
+    user: Annotated[DetailedUser, Security(EarrAuth())],
     region: audible_region_type | None = None,
 ):
     if query.strip():

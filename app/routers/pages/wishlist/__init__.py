@@ -4,7 +4,7 @@ from aiohttp import ClientSession
 from fastapi import APIRouter, Depends, Security
 from sqlmodel import Session
 
-from app.internal.auth.authentication import ABRAuth, DetailedUser
+from app.internal.auth.authentication import EarrAuth, DetailedUser
 from app.internal.db_queries import get_wishlist_counts, get_wishlist_results
 from app.internal.models import GroupEnum
 from app.routers.api.requests import delete_request as api_delete_request
@@ -25,7 +25,7 @@ router.include_router(sources.router)
 @router.get("")
 async def wishlist(
     session: Annotated[Session, Depends(get_session)],
-    user: Annotated[DetailedUser, Security(ABRAuth())],
+    user: Annotated[DetailedUser, Security(EarrAuth())],
 ):
     username = None if user.is_admin() else user.username
     results = get_wishlist_results(session, username, "not_downloaded")
@@ -43,7 +43,7 @@ async def start_auto_download(
     asin: str,
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
-    user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.trusted))],
+    user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.trusted))],
 ):
     await start_auto_download_endpoint(asin, session, client_session, user)
     username = None if user.is_admin() else user.username
@@ -64,7 +64,7 @@ async def start_auto_download(
 async def delete_request(
     asin: str,
     session: Annotated[Session, Depends(get_session)],
-    user: Annotated[DetailedUser, Security(ABRAuth())],
+    user: Annotated[DetailedUser, Security(EarrAuth())],
     downloaded: bool | None = None,
 ):
     await api_delete_request(asin, session, user)

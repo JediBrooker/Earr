@@ -1,4 +1,4 @@
-# Contributing to AudioBookRequest
+# Contributing to Earr
 
 Happy to hear you're interested in contributing! Contributions are always welcome.
 Please read through the following points to ensure both a more straightforward implementation on your side as well as allowing for an easier review process by the maintainers.
@@ -10,9 +10,9 @@ Please also regard [the use of AI](#the-use-of-ai).
 1. Fork the repository on Github.
 2. Clone your fork locally:
    ```sh
-   git clone git@github.com:<username>/AudioBookRequest.git # SSH
-   git clone https://github.com/<username>/AudioBookRequest.git # HTTP
-   cd AudioBookRequest
+   git clone git@github.com:<username>/Earr.git # SSH
+   git clone https://github.com/<username>/Earr.git # HTTP
+   cd Earr
    ```
 3. Use the VSCode/Zed devcontainer if possible. It has all development tools pre-installed.
 4. Run the database migrations and start up the website locally:
@@ -27,10 +27,10 @@ Please also regard [the use of AI](#the-use-of-ai).
 
 If you find a bug, please create a new issue. Include:
 
-1. A snippet of your logs. If possible, set the `ABR_APP__LOG_LEVEL=DEBUG` environment variable to show even more logs.
+1. A snippet of your logs. If possible, set the `EARR_APP__LOG_LEVEL=DEBUG` environment variable to show even more logs.
 2. Expected behavior vs the actual behavior.
-3. How ABR is deployed (docker-compose, Kubernetes, Unrain, etc.)
-4. The ABR version. If on `nightly`, go to a settings page and get the exact version on the bottom right.
+3. How Earr is deployed (docker-compose, Kubernetes, Unrain, etc.)
+4. The Earr version. If on `nightly`, go to a settings page and get the exact version on the bottom right.
 
 ### Suggesting Features
 

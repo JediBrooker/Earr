@@ -45,7 +45,7 @@
     </select>
     {% if force_login_type %}
         <p class="text-xs opacity-60">
-            Login type is forced by the environment variable <code>ABR_APP__FORCE_LOGIN_TYPE</code>.
+            Login type is forced by the environment variable <code>EARR_APP__FORCE_LOGIN_TYPE</code>.
         </p>
     {% endif %}
     <template x-if="loginType === 'forms'">
@@ -182,8 +182,8 @@
                     <br />
                     <span class="font-mono">"auto"</span> will have your OIDC provider redirect you
                     to http if you accessed the site over http, and https if you accessed the site over https.
-                    Requires <span class="font-mono">ABR_APP__FORWARDED_ALLOW_IPS</span>
-                    to be passed as an environment variable. I.e. <span class="font-mono">ABR_APP__FORWARDED_ALLOW_IPS=10.0.0.0/16</span>
+                    Requires <span class="font-mono">EARR_APP__FORWARDED_ALLOW_IPS</span>
+                    to be passed as an environment variable. I.e. <span class="font-mono">EARR_APP__FORWARDED_ALLOW_IPS=10.0.0.0/16</span>
                     if your reverse proxy has the internal network IPs between 10.0.0.0 and 10.0.255.255.
                 </p>
             </div>

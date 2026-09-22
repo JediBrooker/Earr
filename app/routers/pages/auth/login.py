@@ -7,7 +7,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session
 
 from app.internal.auth.authentication import (
-    ABRAuth,
+    EarrAuth,
     RequiresLoginException,
     authenticate_user,
 )
@@ -37,7 +37,7 @@ async def login(
         backup = False
 
     try:
-        await ABRAuth()(request, session)
+        await EarrAuth()(request, session)
         # already logged in
         return BaseUrlRedirectResponse(redirect_uri)
     except HTTPException, RequiresLoginException:

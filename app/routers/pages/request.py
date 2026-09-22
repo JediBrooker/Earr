@@ -5,7 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Se
 from sqlmodel import Session
 
 from app.internal.audible.types import audible_region_type, get_region_from_settings
-from app.internal.auth.authentication import ABRAuth, DetailedUser
+from app.internal.auth.authentication import EarrAuth, DetailedUser
 from app.internal.ranking.quality import quality_config
 from app.routers.api.requests import create_request
 from app.util.censor import censor
@@ -24,7 +24,7 @@ async def add_request(
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
     background_task: BackgroundTasks,
-    user: Annotated[DetailedUser, Security(ABRAuth())],
+    user: Annotated[DetailedUser, Security(EarrAuth())],
     region: Annotated[audible_region_type | None, Form()] = None,
 ):
     try:

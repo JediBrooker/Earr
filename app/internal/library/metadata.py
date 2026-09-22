@@ -1,12 +1,12 @@
 """Writes an Audiobookshelf metadata sidecar next to an organized book.
 
 Audiobookshelf reads a ``metadata.json`` sitting in a book folder and prefers it
-over whatever it can infer from the file and folder names. AudioBookRequest
+over whatever it can infer from the file and folder names. Earr
 already knows all of this from the Audible request, so writing it out means ABS
 does not have to guess, and a release with messy file names still lands with the
 right title, author, narrator and series.
 
-Only fields that are actually known are written. Anything ABR has no source for
+Only fields that are actually known are written. Anything Earr has no source for
 (description, publisher, genres, isbn, language) is left out so ABS keeps
 whatever it finds elsewhere instead of seeing a blank value.
 """

@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Security
 from sqlmodel import Session, col, desc, select
 
-from app.internal.auth.authentication import ABRAuth, DetailedUser
+from app.internal.auth.authentication import EarrAuth, DetailedUser
 from app.internal.library.config import library_config
 from app.internal.library.naming import (
     TEMPLATE_EXAMPLES,
@@ -44,7 +44,7 @@ def recent_imports(session: Session) -> list[LibraryImport]:
 @router.get("")
 def read_library(
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     settings = read_settings(session)
     return catalog_response(
@@ -68,7 +68,7 @@ def update_library(
     scan_interval: Annotated[int, Form()],
     match_threshold: Annotated[int, Form()],
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
     enabled: Annotated[bool, Form()] = False,
     overwrite: Annotated[bool, Form()] = False,
     write_metadata: Annotated[bool, Form()] = False,
@@ -98,7 +98,7 @@ def update_library(
 @router.post("/hx-preview")
 def preview_template(
     folder_template: Annotated[str, Form()],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     """Renders the sample books so the admin sees the effect while typing."""
     _ = admin_user
@@ -119,7 +119,7 @@ def preview_template(
 def scan_now(
     background_task: BackgroundTasks,
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     if not library_config.get_enabled(session):
         raise ToastException("Enable the library organizer first", "error")

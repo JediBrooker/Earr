@@ -21,9 +21,9 @@ services:
   psql:
     image: postgres:17
     environment:
-      POSTGRES_USER: abr
+      POSTGRES_USER: earr
       POSTGRES_PASSWORD: password
-      POSTGRES_DB: audiobookrequest
+      POSTGRES_DB: earr
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
     ports:

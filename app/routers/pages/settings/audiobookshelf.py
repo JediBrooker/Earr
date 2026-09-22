@@ -4,7 +4,7 @@ from aiohttp import ClientSession
 from fastapi import APIRouter, Depends, Form, Response, Security
 from sqlmodel import Session
 
-from app.internal.auth.authentication import ABRAuth, DetailedUser
+from app.internal.auth.authentication import EarrAuth, DetailedUser
 from app.internal.models import GroupEnum
 from app.routers.api.settings.audiobookshelf import (
     read_abs as api_read_abs,
@@ -32,7 +32,7 @@ router = APIRouter(prefix="/audiobookshelf")
 async def read_abs(
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     response = await api_read_abs(
         session=session,
@@ -55,7 +55,7 @@ async def read_abs(
 def update_abs_base_url(
     base_url: Annotated[str, Form()],
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     api_update_abs_base_url(base_url=base_url, session=session, admin_user=admin_user)
     return Response(status_code=204, headers={"HX-Refresh": "true"})
@@ -65,7 +65,7 @@ def update_abs_base_url(
 def update_abs_api_token(
     api_token: Annotated[str, Form(alias="api_token")],
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     api_update_abs_api_token(
         api_token=api_token, session=session, admin_user=admin_user
@@ -77,7 +77,7 @@ def update_abs_api_token(
 def update_abs_library(
     library_id: Annotated[str, Form(alias="library_id")],
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     api_update_abs_library(
         library_id=library_id, session=session, admin_user=admin_user
@@ -88,7 +88,7 @@ def update_abs_library(
 @router.put("/hx-check-downloaded")
 def update_abs_check_downloaded(
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
     check_downloaded: Annotated[bool, Form()] = False,
 ):
     api_update_abs_check_downloaded(

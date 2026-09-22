@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, Security
 from sqlmodel import Session
 
-from app.internal.auth.authentication import ABRAuth, DetailedUser
+from app.internal.auth.authentication import EarrAuth, DetailedUser
 from app.internal.models import ManualBookRequest
 from app.internal.ranking.quality import quality_config
 from app.routers.api.requests import (
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/manual")
 @router.get("")
 async def read_manual(
     session: Annotated[Session, Depends(get_session)],
-    user: Annotated[DetailedUser, Security(ABRAuth())],
+    user: Annotated[DetailedUser, Security(EarrAuth())],
     id: uuid.UUID | None = None,
 ):
     book = None
@@ -43,7 +43,7 @@ async def add_manual(
     background_task: BackgroundTasks,
     title: Annotated[str, Form()],
     author: Annotated[str, Form()],
-    user: Annotated[DetailedUser, Security(ABRAuth())],
+    user: Annotated[DetailedUser, Security(EarrAuth())],
     narrator: Annotated[str | None, Form()] = None,
     subtitle: Annotated[str | None, Form()] = None,
     publish_date: Annotated[str | None, Form()] = None,

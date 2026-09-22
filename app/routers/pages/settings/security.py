@@ -4,7 +4,7 @@ from aiohttp import ClientSession
 from fastapi import APIRouter, Depends, Form, HTTPException, Response, Security
 from sqlmodel import Session
 
-from app.internal.auth.authentication import ABRAuth, DetailedUser
+from app.internal.auth.authentication import EarrAuth, DetailedUser
 from app.internal.auth.config import auth_config
 from app.internal.auth.login_types import LoginTypeEnum
 from app.internal.auth.oidc_config import oidc_config
@@ -31,7 +31,7 @@ router = APIRouter(prefix="/security")
 @router.get("")
 def read_security(
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     try:
         force_login_type = Settings().app.get_force_login_type()
@@ -60,7 +60,7 @@ def read_security(
 @router.post("/hx-reset-auth")
 def reset_auth_secret(
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     api_reset_auth_secret(session, admin_user)
     return Response(status_code=204, headers={"HX-Refresh": "true"})
@@ -70,7 +70,7 @@ def reset_auth_secret(
 async def update_security(
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
     login_type: Annotated[LoginTypeEnum | None, Form()] = None,
     access_token_expiry: Annotated[int | None, Form()] = None,
     min_password_length: Annotated[int | None, Form()] = None,

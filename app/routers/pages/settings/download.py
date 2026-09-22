@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Form, Response, Security
 from sqlmodel import Session
 
-from app.internal.auth.authentication import ABRAuth, DetailedUser
+from app.internal.auth.authentication import EarrAuth, DetailedUser
 from app.internal.models import GroupEnum
 from app.internal.ranking.quality import IndexerFlag, QualityRange, quality_config
 from app.routers.api.settings.download import (
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/download")
 @router.get("")
 def read_download(
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     auto_download = quality_config.get_auto_download(session)
     flac_range = quality_config.get_range(session, "quality_flac")
@@ -66,7 +66,7 @@ def update_download(
     name_ratio: Annotated[int, Form()],
     title_ratio: Annotated[int, Form()],
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
     auto_download: Annotated[bool, Form()] = False,
 ):
     flac = QualityRange(from_kbits=flac_from, to_kbits=flac_to)
@@ -112,7 +112,7 @@ def update_download(
 @router.delete("")
 def reset_download_setings(
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     _ = admin_user
     quality_config.reset_all(session)
@@ -124,7 +124,7 @@ def add_indexer_flag(
     session: Annotated[Session, Depends(get_session)],
     flag: Annotated[str, Form()],
     score: Annotated[int, Form()],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     _ = admin_user
     flags = quality_config.get_indexer_flags(session)
@@ -142,7 +142,7 @@ def add_indexer_flag(
 def remove_indexer_flag(
     flag: str,
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     _ = admin_user
     flags = quality_config.get_indexer_flags(session)

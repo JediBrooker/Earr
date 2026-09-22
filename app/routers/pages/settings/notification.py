@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Form, HTTPException, Response, Security
 from sqlmodel import Session
 
-from app.internal.auth.authentication import ABRAuth, DetailedUser
+from app.internal.auth.authentication import EarrAuth, DetailedUser
 from app.internal.models import (
     EventEnum,
     GroupEnum,
@@ -36,7 +36,7 @@ router = APIRouter(prefix="/notifications")
 @router.get("")
 def read_notifications(
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     notifications = list_notifications(session, admin_user)
     event_types = [e.value for e in EventEnum]
@@ -72,7 +72,7 @@ def add_notification(
     event_type: Annotated[str, Form()],
     body_type: Annotated[NotificationBodyTypeEnum, Form()],
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
     headers: Annotated[str, Form()] = "{}",
     body: Annotated[str, Form()] = "{}",
 ):
@@ -103,7 +103,7 @@ def update_notification(
     event_type: Annotated[str, Form()],
     body_type: Annotated[NotificationBodyTypeEnum, Form()],
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
     headers: Annotated[str, Form()] = "{}",
     body: Annotated[str, Form()] = "{}",
 ):
@@ -130,7 +130,7 @@ def update_notification(
 def toggle_notification(
     notification_id: uuid.UUID,
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     try:
         api_toggle_notification(notification_id, session, admin_user)
@@ -144,7 +144,7 @@ def toggle_notification(
 def delete_notification(
     notification_id: uuid.UUID,
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     try:
         api_delete_notification(notification_id, session, admin_user)
@@ -158,7 +158,7 @@ def delete_notification(
 async def test_notification(
     notification_id: uuid.UUID,
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     try:
         await api_test_notification_id(notification_id, session, admin_user)

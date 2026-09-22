@@ -195,16 +195,16 @@ class RequiresLoginException(Exception):
 
 
 @final
-class ABRAuth(SecurityBase):
+class EarrAuth(SecurityBase):
     def __init__(self, lowest_allowed_group: GroupEnum = GroupEnum.untrusted):
         self.lowest_allowed_group = lowest_allowed_group
         self.oidc_scheme: OpenIdConnect | None = None
         self.none_user: User | None = None
         self.security = HTTPBasic()
         self.model = SecurityBaseModel(
-            type=SecuritySchemeType.openIdConnect, description="ABR Authentication"
+            type=SecuritySchemeType.openIdConnect, description="Earr Authentication"
         )
-        self.scheme_name = lowest_allowed_group.capitalize() + " ABR Authentication"
+        self.scheme_name = lowest_allowed_group.capitalize() + " Earr Authentication"
 
     async def __call__(
         self,
@@ -358,7 +358,7 @@ class AnyAuth(SecurityBase):
         self.lowest_allowed_group = lowest_allowed_group
         self.auto_error = auto_error
         self.api_key_auth = APIKeyAuth(lowest_allowed_group, auto_error)
-        self.abr_auth = ABRAuth(lowest_allowed_group)
+        self.abr_auth = EarrAuth(lowest_allowed_group)
         self.scheme_name = lowest_allowed_group.capitalize() + " Auth"
         self.model = HTTPBearer(description="API Key or Session cookies").model
 

@@ -5,7 +5,7 @@ from sqlmodel import Session
 
 from app.internal.audiobookshelf.client import background_abs_trigger_scan
 from app.internal.audiobookshelf.config import abs_config
-from app.internal.auth.authentication import ABRAuth, DetailedUser
+from app.internal.auth.authentication import EarrAuth, DetailedUser
 from app.internal.db_queries import get_wishlist_counts, get_wishlist_results
 from app.internal.models import GroupEnum
 from app.routers.api.requests import mark_downloaded as api_mark_downloaded
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/downloaded")
 @router.get("")
 async def downloaded(
     session: Annotated[Session, Depends(get_session)],
-    user: Annotated[DetailedUser, Security(ABRAuth())],
+    user: Annotated[DetailedUser, Security(EarrAuth())],
 ):
     username = None if user.is_admin() else user.username
     results = get_wishlist_results(session, username, "downloaded")
@@ -36,7 +36,7 @@ async def update_downloaded(
     asin: str,
     session: Annotated[Session, Depends(get_session)],
     background_task: BackgroundTasks,
-    admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     await api_mark_downloaded(asin, session, background_task, admin_user)
 

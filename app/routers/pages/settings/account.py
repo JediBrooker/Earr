@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Form, HTTPException, Security
 from sqlmodel import Session, select
 
-from app.internal.auth.authentication import ABRAuth, DetailedUser
+from app.internal.auth.authentication import EarrAuth, DetailedUser
 from app.internal.auth.config import auth_config
 from app.internal.auth.login_types import LoginTypeEnum
 from app.internal.models import APIKey
@@ -25,7 +25,7 @@ router = APIRouter(prefix="/account")
 @router.get("")
 def read_account(
     session: Annotated[Session, Depends(get_session)],
-    user: Annotated[DetailedUser, Security(ABRAuth())],
+    user: Annotated[DetailedUser, Security(EarrAuth())],
 ):
     api_keys = session.exec(
         select(APIKey).where(APIKey.user_username == user.username)
@@ -49,7 +49,7 @@ def change_password(
     password: Annotated[str, Form()],
     confirm_password: Annotated[str, Form()],
     session: Annotated[Session, Depends(get_session)],
-    user: Annotated[DetailedUser, Security(ABRAuth())],
+    user: Annotated[DetailedUser, Security(EarrAuth())],
 ):
     login_type = auth_config.get_login_type(session)
     if not (login_type == LoginTypeEnum.forms or login_type == LoginTypeEnum.basic):
@@ -76,7 +76,7 @@ def change_password(
 def create_new_api_key(
     name: Annotated[str, Form()],
     session: Annotated[Session, Depends(get_session)],
-    user: Annotated[DetailedUser, Security(ABRAuth())],
+    user: Annotated[DetailedUser, Security(EarrAuth())],
 ):
     if not name.strip():
         raise ToastException("API key name cannot be empty", "error")
@@ -102,7 +102,7 @@ def create_new_api_key(
 def delete_api_key(
     api_key_id: uuid.UUID,
     session: Annotated[Session, Depends(get_session)],
-    user: Annotated[DetailedUser, Security(ABRAuth())],
+    user: Annotated[DetailedUser, Security(EarrAuth())],
 ):
     try:
         api_delete_api_key(str(api_key_id), session, user)
@@ -125,7 +125,7 @@ def delete_api_key(
 def toggle_api_key(
     api_key_id: uuid.UUID,
     session: Annotated[Session, Depends(get_session)],
-    user: Annotated[DetailedUser, Security(ABRAuth())],
+    user: Annotated[DetailedUser, Security(EarrAuth())],
 ):
     try:
         api_toggle_api_key(str(api_key_id), session, user)
