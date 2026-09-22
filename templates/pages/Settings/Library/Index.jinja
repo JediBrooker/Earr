@@ -25,9 +25,11 @@
         Library
     </h2>
     <p class="text-xs opacity-60">
-        Places finished downloads into a folder structure of your choosing. Earr scans the
-        completed downloads folder and matches new downloads against the releases it grabbed, so both
-        folders have to be reachable from inside the container.
+        Places finished downloads into a folder structure of your choosing. With a download client
+        configured below, Earr asks it where each download went. Without one it falls back to matching
+        the release name against the folders listed below, which is less reliable because clients
+        often rename the folder. Either way the downloads and the library have to be reachable from
+        inside the container, and on the same filesystem for hardlinks to work.
     </p>
 
     <form class="flex flex-col gap-2"
