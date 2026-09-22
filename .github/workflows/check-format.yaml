@@ -1,4 +1,4 @@
-name: Check Format
+name: Checks
 
 on:
   push:
@@ -6,12 +6,26 @@ on:
       - "**.py"
       - "**.html"
       - "**.css"
+      - "**.jinja"
       - "**.yaml"
-
+      - "justfile"
+      - "uv.lock"
+  pull_request:
+    paths:
+      - "**.py"
+      - "**.html"
+      - "**.css"
+      - "**.jinja"
+      - "**.yaml"
+      - "justfile"
+      - "uv.lock"
 jobs:
   test:
-    name: Test types
+    name: Format, types and migrations
     runs-on: ubuntu-latest
+
+    env:
+      ABR_APP__CONFIG_DIR: ./config
 
     steps:
       - uses: actions/checkout@v3
@@ -23,3 +37,12 @@ jobs:
 
       - name: Check Template Formats
         run: just test_format
+
+      - name: Check Types
+        run: just types
+
+      - name: Check Templates Render
+        run: just test_jinja
+
+      - name: Check For Missing Migrations
+        run: just check_migrations

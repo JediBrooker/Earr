@@ -37,3 +37,8 @@ test_format:
 
 test_jinja:
     uv run app/util/test_jinjax.py templates/ -g content base_url json_regexp audible_regions version changelog getattr -f toJSstring
+
+# fails if the models have drifted from the migrations
+check_migrations:
+    uv run alembic upgrade heads
+    uv run alembic check
