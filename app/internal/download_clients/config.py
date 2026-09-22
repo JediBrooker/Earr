@@ -138,6 +138,21 @@ class DownloadClientConfig(StringConfigCache[DownloadClientConfigKey]):
 download_client_config = DownloadClientConfig()
 
 
+async def list_categories(
+    session: Session, client_session: ClientSession
+) -> tuple[list[str], list[str]]:
+    """The categories each client offers, for populating the settings page.
+
+    An unreachable client returns nothing rather than raising, so the settings
+    page still renders when a client is down.
+    """
+    qbit = download_client_config.build_qbit(session)
+    sab = download_client_config.build_sab(session)
+    qbit_cats = await qbit.list_categories(client_session) if qbit else []
+    sab_cats = await sab.list_categories(client_session) if sab else []
+    return qbit_cats, sab_cats
+
+
 async def apply_category(
     session: Session,
     client_session: ClientSession,

@@ -48,6 +48,15 @@ class DownloadClient(ABC):
         """Returns whether the client is reachable, and a message either way."""
 
     @abstractmethod
+    async def list_categories(self, client_session: ClientSession) -> list[str]:
+        """The categories the client already knows about.
+
+        Earr does not create them: a category is only useful here because of
+        the save path attached to it, and inventing one would file downloads
+        somewhere nobody chose.
+        """
+
+    @abstractmethod
     async def set_category(
         self,
         client_session: ClientSession,

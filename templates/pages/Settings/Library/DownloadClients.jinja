@@ -43,11 +43,22 @@
                    class="input w-full" />
         </div>
 
-        <input name="qbit_category"
-               type="text"
-               value="{{ settings.qbit_category }}"
-               placeholder="category to move grabs into, e.g. books (blank to leave alone)"
-               class="input w-full" />
+        {% if settings.qbit_categories %}
+            <select name="qbit_category" class="select w-full">
+                <option value="" {% if not settings.qbit_category %}selected{% endif %}>
+                    Leave the category alone
+                </option>
+                {% for c in settings.qbit_categories %}
+                    <option value="{{ c }}" {% if settings.qbit_category==c %}selected{% endif %}>{{ c }}</option>
+                {% endfor %}
+            </select>
+        {% else %}
+            <input name="qbit_category"
+                   type="text"
+                   value="{{ settings.qbit_category }}"
+                   placeholder="category (qBittorrent unreachable, so type it)"
+                   class="input w-full" />
+        {% endif %}
 
         <div class="w-full flex items-center justify-between gap-2 border-t pt-3 border-base-200">
             <label for="sab-enabled" class="font-semibold">
@@ -69,11 +80,22 @@
                {% if settings.sab_api_key_set %}placeholder="●●●●●●●● (unchanged)"{% else %}placeholder="API key"{% endif %}
                class="input w-full" />
 
-        <input name="sab_category"
-               type="text"
-               value="{{ settings.sab_category }}"
-               placeholder="category to move grabs into, e.g. books (blank to leave alone)"
-               class="input w-full" />
+        {% if settings.sab_categories %}
+            <select name="sab_category" class="select w-full">
+                <option value="" {% if not settings.sab_category %}selected{% endif %}>
+                    Leave the category alone
+                </option>
+                {% for c in settings.sab_categories %}
+                    <option value="{{ c }}" {% if settings.sab_category==c %}selected{% endif %}>{{ c }}</option>
+                {% endfor %}
+            </select>
+        {% else %}
+            <input name="sab_category"
+                   type="text"
+                   value="{{ settings.sab_category }}"
+                   placeholder="category (SABnzbd unreachable, so type it)"
+                   class="input w-full" />
+        {% endif %}
 
         <p class="text-xs opacity-60 pt-1">
             Prowlarr picks the category when it hands a release to the client and offers no way to

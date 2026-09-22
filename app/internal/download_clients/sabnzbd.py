@@ -87,6 +87,19 @@ class SabnzbdClient(DownloadClient):
         return True, f"Connected to SABnzbd {version}"
 
     @override
+    async def list_categories(self, client_session: ClientSession) -> list[str]:
+        payload = await self._call(client_session, "get_cats")
+        if payload is None:
+            return []
+        cats = payload.get("categories")
+        if not isinstance(cats, list):
+            return []
+        # "*" is SABnzbd's default catch-all, not a real destination
+        return sorted(
+            str(c) for c in cast(list[object], cats) if str(c) not in ("", "*")
+        )
+
+    @override
     async def set_category(
         self,
         client_session: ClientSession,

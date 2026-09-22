@@ -151,6 +151,38 @@ class TestQBittorrent:
         assert message
 
 
+class TestCategoryListing:
+    async def test_qbittorrent_categories_are_listed(self, serve: Any):
+        async def cats(request: web.Request) -> web.Response:
+            return web.json_response({
+                "tv": {"name": "tv", "savePath": "tv"},
+                "books": {"name": "books", "savePath": "books"},
+            })
+
+        url = await serve(qbit_routes([]) + [web.get("/api/v2/torrents/categories", cats)])
+        async with ClientSession() as cs:
+            assert await QBittorrentClient(url).list_categories(cs) == ["books", "tv"]
+
+    async def test_an_unreachable_qbittorrent_lists_nothing(self):
+        async with ClientSession() as cs:
+            assert await QBittorrentClient("http://127.0.0.1:9").list_categories(cs) == []
+
+    async def test_sabnzbd_categories_are_listed_without_the_catch_all(self, serve: Any):
+        async def api(request: web.Request) -> web.Response:
+            if request.query.get("mode") == "get_cats":
+                return web.json_response({"categories": ["*", "tv", "books", ""]})
+            return web.json_response({})
+
+        url = await serve([web.get("/api", api)])
+        async with ClientSession() as cs:
+            # "*" is SABnzbd's default, not a destination
+            assert await SabnzbdClient(url, "k").list_categories(cs) == ["books", "tv"]
+
+    async def test_an_unreachable_sabnzbd_lists_nothing(self):
+        async with ClientSession() as cs:
+            assert await SabnzbdClient("http://127.0.0.1:9", "k").list_categories(cs) == []
+
+
 class TestQBittorrentCategory:
     def setup_method(self):
         CATEGORY_CALLS.clear()

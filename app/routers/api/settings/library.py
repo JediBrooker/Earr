@@ -28,10 +28,13 @@ class DownloadClientSettings(BaseModel):
     qbit_username: str
     qbit_password_set: bool
     qbit_category: str
+    qbit_categories: list[str] = []
+    """What the client offers. Empty when it is unreachable."""
     sab_enabled: bool
     sab_url: str
     sab_api_key_set: bool
     sab_category: str
+    sab_categories: list[str] = []
 
 
 class LibrarySettings(BaseModel):

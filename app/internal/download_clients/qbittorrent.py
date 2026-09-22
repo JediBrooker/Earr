@@ -105,6 +105,22 @@ class QBittorrentClient(DownloadClient):
             return False, str(e)
 
     @override
+    async def list_categories(self, client_session: ClientSession) -> list[str]:
+        if not await self._login(client_session):
+            return []
+        try:
+            async with client_session.get(
+                self._url("torrents/categories"), headers=self._headers()
+            ) as response:
+                if not response.ok:
+                    return []
+                payload = cast(JsonObject, await response.json())
+        except Exception as e:
+            logger.warning("qBittorrent: could not list categories", error=str(e))
+            return []
+        return sorted(payload.keys())
+
+    @override
     async def set_category(
         self,
         client_session: ClientSession,

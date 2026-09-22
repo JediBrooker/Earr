@@ -12,6 +12,7 @@ from fastapi import (
 from sqlmodel import Session, col, desc, select
 
 from app.internal.auth.authentication import EarrAuth, DetailedUser
+from app.internal.download_clients.config import list_categories
 from app.internal.library.config import library_config
 from app.internal.library.naming import (
     TEMPLATE_EXAMPLES,
@@ -58,11 +59,16 @@ def recent_imports(session: Session) -> list[LibraryImport]:
 
 
 @router.get("")
-def read_library(
+async def read_library(
     session: Annotated[Session, Depends(get_session)],
+    client_session: Annotated[ClientSession, Depends(get_connection)],
     admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     settings = read_settings(session)
+    # populated from the clients so the category can be picked rather than typed
+    qbit_cats, sab_cats = await list_categories(session, client_session)
+    settings.download_clients.qbit_categories = qbit_cats
+    settings.download_clients.sab_categories = sab_cats
     return catalog_response(
         "Settings.Library.Index",
         user=admin_user,
