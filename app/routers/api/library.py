@@ -9,6 +9,7 @@ from sqlmodel import Session, col, desc, select
 from app.internal.audiobookshelf.client import background_abs_trigger_scan
 from app.internal.audiobookshelf.config import abs_config
 from app.internal.auth.authentication import AnyAuth, DetailedUser
+from app.internal.download_clients.config import download_client_config
 from app.internal.library.config import LibraryMisconfigured, library_config
 from app.internal.library.metadata import write_metadata
 from app.internal.library.organizer import OrganizeError, organize, resolve_target_dir
@@ -51,7 +52,9 @@ async def scan_now(
 ):
     """Runs the completed downloads scan immediately instead of waiting for the interval."""
     try:
-        library_config.raise_if_invalid(session)
+        library_config.raise_if_invalid(
+            session, has_download_client=download_client_config.any_enabled(session)
+        )
     except LibraryMisconfigured as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -72,26 +75,33 @@ class ImportResult(BaseModel):
 
 
 def resolve_source(session: Session, source_path: str) -> Path:
-    """Confines a caller supplied path to the completed downloads folder."""
-    download_dir = library_config.get_download_dir(session)
-    if download_dir is None:
+    """Confines a caller supplied path to one of the completed downloads folders."""
+    download_dirs = [d.resolve() for d in library_config.get_download_dirs(session)]
+    if not download_dirs:
         raise HTTPException(
-            status_code=400, detail="Completed downloads folder not set"
+            status_code=400, detail="No completed downloads folder is set"
         )
 
-    download_dir = download_dir.resolve()
     source = Path(source_path)
-    source = source if source.is_absolute() else download_dir / source
-    source = source.resolve()
+    candidates = (
+        [source.resolve()]
+        if source.is_absolute()
+        # a relative path is tried against each folder in turn
+        else [(d / source).resolve() for d in download_dirs]
+    )
 
-    if not source.is_relative_to(download_dir):
+    allowed = [c for c in candidates if any(c.is_relative_to(d) for d in download_dirs)]
+    if not allowed:
+        folders = ", ".join(str(d) for d in download_dirs)
         raise HTTPException(
             status_code=400,
-            detail=f"Path has to be inside the completed downloads folder ({download_dir})",
+            detail=f"Path has to be inside a completed downloads folder ({folders})",
         )
-    if not source.exists():
-        raise HTTPException(status_code=404, detail=f"Path not found: {source}")
-    return source
+
+    for candidate in allowed:
+        if candidate.exists():
+            return candidate
+    raise HTTPException(status_code=404, detail=f"Path not found: {allowed[0]}")
 
 
 @router.post("/import", response_model=ImportResult)

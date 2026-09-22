@@ -232,7 +232,7 @@ class TestManualImport:
         )
 
         assert r.status_code == 400
-        assert "inside the completed downloads folder" in r.json()["detail"]
+        assert "completed downloads folder" in r.json()["detail"]
 
     def test_unknown_book(
         self, client: TestClient, admin: dict[str, str], configured: tuple[Path, Path]

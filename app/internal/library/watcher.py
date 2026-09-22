@@ -309,16 +309,16 @@ async def scan(session: Session, client_session: ClientSession | None = None) ->
     if not pending:
         return 0
 
-    download_dir = library_config.get_download_dir(session)
     candidates: list[Path] = []
-    if download_dir is not None and download_dir.is_dir():
-        candidates = sorted(download_dir.iterdir())
-        _forget_gone(candidates)
-    elif download_dir is not None:
-        logger.warning(
-            "Library: completed downloads folder does not exist",
-            path=str(download_dir),
-        )
+    for download_dir in library_config.get_download_dirs(session):
+        if download_dir.is_dir():
+            candidates.extend(sorted(download_dir.iterdir()))
+        else:
+            logger.warning(
+                "Library: completed downloads folder does not exist",
+                path=str(download_dir),
+            )
+    _forget_gone(candidates)
 
     use_clients = client_session is not None and download_client_config.any_enabled(
         session

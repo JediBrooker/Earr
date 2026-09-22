@@ -63,16 +63,17 @@
         </p>
 
         <label for="library-download-dir" class="pt-2">
-            Completed downloads folder
+            Completed downloads folders
         </label>
-        <input id="library-download-dir"
-               name="download_dir"
-               type="text"
-               value="{{ settings.download_dir }}"
-               placeholder="/downloads/complete"
-               class="input w-full" />
+        <textarea id="library-download-dir"
+                  name="download_dir"
+                  rows="3"
+                  placeholder="/data/torrents/books&#10;/data/usenet/complete/books"
+                  class="textarea w-full font-mono text-sm">{{ settings.download_dir }}</textarea>
         <p class="text-xs opacity-60">
-            Where your download client puts finished downloads, as seen from Earr.
+            One per line, as seen from Earr. Torrents and usenet usually land in different places, so
+            more than one is normal. Only used as a fallback: with a download client configured below,
+            Earr asks it where a download went instead of searching these.
         </p>
 
         <label for="library-root-dir" class="pt-2">

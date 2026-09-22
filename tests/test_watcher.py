@@ -252,6 +252,49 @@ class TestFailureHandling:
         assert book.downloaded is True
 
 
+class TestMultipleDownloadFolders:
+    """Torrents and usenet land in different trees, so more than one folder is
+    the normal case rather than an edge case."""
+
+    async def test_a_download_in_the_second_folder_is_found(
+        self, session: Session, library: tuple[Path, Path]
+    ):
+        downloads, root = library
+        usenet = downloads.parent / "usenet"
+        usenet.mkdir()
+        library_config.set_enabled(session, True)
+        library_config.set_mode(session, OrganizeModeEnum.copy)
+        library_config.set_download_dirs(session, f"{downloads}\n{usenet}")
+        library_config.set_root_dir(session, str(root))
+        library_config.set_folder_template(session, "{author}/{title}")
+
+        _ = make_download(usenet, "andy weir - the martian", {"01.m4b": "x"})
+        book = standalone_book()
+        session.add(book)
+        session.commit()
+        _ = record_grab(session, book, book.asin, "andy weir - the martian")
+
+        _ = await watcher.scan(session)
+        assert await watcher.scan(session) == 1
+        assert (root / "Andy Weir" / "The Martian" / "01.m4b").exists()
+
+    def test_folders_are_parsed_from_newlines_and_commas(self, session: Session):
+        library_config.set_download_dirs(session, "/a/one\n/b/two, /c/three")
+        assert [str(p) for p in library_config.get_download_dirs(session)] == [
+            "/a/one",
+            "/b/two",
+            "/c/three",
+        ]
+
+    def test_a_single_folder_still_works(self, session: Session):
+        """Values written before this was a list must keep working."""
+        library_config.set_download_dir(session, "/data/torrents/prowlarr")
+        assert [str(p) for p in library_config.get_download_dirs(session)] == [
+            "/data/torrents/prowlarr"
+        ]
+        assert str(library_config.get_download_dir(session)) == "/data/torrents/prowlarr"
+
+
 class TestDownloadClientResolution:
     """With a client configured the watcher asks it where a grab landed, rather
     than matching the release title against folder names."""

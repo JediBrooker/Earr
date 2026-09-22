@@ -46,12 +46,12 @@ class LibrarySettings(BaseModel):
 
 
 def read_settings(session: Session) -> LibrarySettings:
-    download_dir = library_config.get_download_dir(session)
+    download_dirs = library_config.get_download_dirs(session)
     root_dir = library_config.get_root_dir(session)
     return LibrarySettings(
         enabled=library_config.get_enabled(session),
         mode=library_config.get_mode(session),
-        download_dir=str(download_dir) if download_dir else "",
+        download_dir="\n".join(str(d) for d in download_dirs),
         root_dir=str(root_dir) if root_dir else "",
         folder_template=library_config.get_folder_template(session),
         scan_interval=library_config.get_scan_interval(session),
@@ -115,9 +115,17 @@ def update_library_settings(
     except TemplateError as e:
         raise HTTPException(status_code=422, detail=str(e))
 
-    if body.enabled and not body.download_dir.strip():
+    if (
+        body.enabled
+        and not body.download_dir.strip()
+        and not download_client_config.any_enabled(session)
+    ):
         raise HTTPException(
-            status_code=422, detail="Completed downloads folder is required"
+            status_code=422,
+            detail=(
+                "Set at least one completed downloads folder, or configure a "
+                "download client that can report paths itself"
+            ),
         )
     if body.enabled and not body.root_dir.strip():
         raise HTTPException(status_code=422, detail="Library folder is required")
@@ -133,7 +141,7 @@ def update_library_settings(
 
     library_config.set_enabled(session, body.enabled)
     library_config.set_mode(session, body.mode)
-    library_config.set_download_dir(session, body.download_dir.strip())
+    library_config.set_download_dirs(session, body.download_dir)
     library_config.set_root_dir(session, body.root_dir.strip())
     library_config.set_folder_template(session, body.folder_template)
     library_config.set_scan_interval(session, body.scan_interval)

@@ -38,9 +38,13 @@ class LibraryConfig(StringConfigCache[LibraryConfigKey]):
             and self.get_root_dir(session) is not None
         )
 
-    def raise_if_invalid(self, session: Session):
-        if not self.get_download_dir(session):
-            raise LibraryMisconfigured("Completed downloads folder not set")
+    def raise_if_invalid(self, session: Session, has_download_client: bool = False):
+        """A download client reports paths itself, so the folders are only
+        needed as a fallback when there is no client to ask."""
+        if not has_download_client and not self.get_download_dirs(session):
+            raise LibraryMisconfigured(
+                "Set a completed downloads folder, or configure a download client"
+            )
         if not self.get_root_dir(session):
             raise LibraryMisconfigured("Library folder not set")
 
@@ -60,12 +64,30 @@ class LibraryConfig(StringConfigCache[LibraryConfigKey]):
     def set_mode(self, session: Session, mode: OrganizeModeEnum):
         self.set(session, "library_mode", mode.value)
 
-    def get_download_dir(self, session: Session) -> Path | None:
+    def get_download_dirs(self, session: Session) -> list[Path]:
+        """Every folder to look in, in order.
+
+        Torrents and usenet usually land in different trees, so more than one
+        is normal. Stored as one newline separated string, which keeps values
+        written before this was a list working unchanged.
+        """
         value = self.get(session, "library_download_dir")
-        return Path(value) if value else None
+        if not value:
+            return []
+        parts = [p.strip() for p in value.replace(",", "\n").splitlines()]
+        return [Path(p.rstrip("/") or "/") for p in parts if p]
+
+    def set_download_dirs(self, session: Session, paths: str):
+        cleaned = [p.strip().rstrip("/") for p in paths.replace(",", "\n").splitlines()]
+        self.set(session, "library_download_dir", "\n".join(p for p in cleaned if p))
+
+    def get_download_dir(self, session: Session) -> Path | None:
+        """The first configured folder. Kept for callers that only need one."""
+        dirs = self.get_download_dirs(session)
+        return dirs[0] if dirs else None
 
     def set_download_dir(self, session: Session, path: str):
-        self.set(session, "library_download_dir", path.rstrip("/") or "/")
+        self.set_download_dirs(session, path)
 
     def get_root_dir(self, session: Session) -> Path | None:
         value = self.get(session, "library_root_dir")
