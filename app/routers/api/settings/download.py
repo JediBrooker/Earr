@@ -7,6 +7,7 @@ from sqlmodel import Session
 from app.internal.auth.authentication import AnyAuth, DetailedUser
 from app.internal.models import GroupEnum
 from app.internal.ranking.quality import IndexerFlag, QualityRange, quality_config
+from app.internal.research_scheduler import reschedule
 from app.util.db import get_session
 
 router = APIRouter(prefix="/download")
@@ -14,6 +15,9 @@ router = APIRouter(prefix="/download")
 
 class DownloadSettings(BaseModel):
     auto_download: bool
+    research_enabled: bool
+    research_interval: int
+    research_max_attempts: int
     flac_range: QualityRange
     m4b_range: QualityRange
     mp3_range: QualityRange
@@ -32,6 +36,9 @@ def get_download_settings(
 ):
     return DownloadSettings(
         auto_download=quality_config.get_auto_download(session),
+        research_enabled=quality_config.get_research_enabled(session),
+        research_interval=quality_config.get_research_interval(session),
+        research_max_attempts=quality_config.get_research_max_attempts(session),
         flac_range=quality_config.get_range(session, "quality_flac"),
         m4b_range=quality_config.get_range(session, "quality_m4b"),
         mp3_range=quality_config.get_range(session, "quality_mp3"),
@@ -46,6 +53,9 @@ def get_download_settings(
 
 class UpdateDownloadSettings(BaseModel):
     auto_download: bool
+    research_enabled: bool = False
+    research_interval: int = 6 * 60 * 60
+    research_max_attempts: int = 5
     flac_range: QualityRange
     m4b_range: QualityRange
     mp3_range: QualityRange
@@ -63,6 +73,10 @@ def update_download_settings(
     _: Annotated[DetailedUser, Security(AnyAuth(GroupEnum.admin))],
 ):
     quality_config.set_auto_download(session, body.auto_download)
+    quality_config.set_research_enabled(session, body.research_enabled)
+    quality_config.set_research_interval(session, body.research_interval)
+    quality_config.set_research_max_attempts(session, body.research_max_attempts)
+    reschedule(quality_config.get_research_interval(session))
     quality_config.set_range(session, "quality_flac", body.flac_range)
     quality_config.set_range(session, "quality_m4b", body.m4b_range)
     quality_config.set_range(session, "quality_mp3", body.mp3_range)

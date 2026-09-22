@@ -15,10 +15,16 @@ QualityFormatKey = Literal[
     "quality_unknown",
 ]
 
+MIN_RESEARCH_INTERVAL = 15 * 60
+"""Searching more often than this just hammers the indexers."""
+
 QualityConfigKey = (
     QualityFormatKey
     | Literal[
         "quality_auto_download",
+        "quality_research_enabled",
+        "quality_research_interval",
+        "quality_research_max_attempts",
         "quality_indexer_flags",
         "quality_format_order",
         "quality_indexer_order",
@@ -78,6 +84,32 @@ class QualityProfile(StringConfigCache[QualityConfigKey]):
         ]
         for key in keys:
             self.delete(session, key)
+
+    def get_research_enabled(self, session: Session) -> bool:
+        """Whether outstanding requests are searched for again periodically."""
+        return bool(self.get_int(session, "quality_research_enabled", 0))
+
+    def set_research_enabled(self, session: Session, enabled: bool):
+        self.set_int(session, "quality_research_enabled", int(enabled))
+
+    def get_research_interval(self, session: Session) -> int:
+        """Seconds a book waits between attempts. Six hours by default."""
+        return max(
+            MIN_RESEARCH_INTERVAL,
+            self.get_int(session, "quality_research_interval", 6 * 60 * 60),
+        )
+
+    def set_research_interval(self, session: Session, seconds: int):
+        self.set_int(
+            session, "quality_research_interval", max(MIN_RESEARCH_INTERVAL, seconds)
+        )
+
+    def get_research_max_attempts(self, session: Session) -> int:
+        """Attempts before a book is left alone, so nothing retries forever."""
+        return max(1, self.get_int(session, "quality_research_max_attempts", 5))
+
+    def set_research_max_attempts(self, session: Session, attempts: int):
+        self.set_int(session, "quality_research_max_attempts", max(1, attempts))
 
     def get_auto_download(self, session: Session) -> bool:
         return bool(self.get_int(session, "quality_auto_download", 0))

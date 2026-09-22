@@ -1,6 +1,9 @@
 {#def
     user: DetailedUser,
     auto_download: bool,
+    research_enabled: bool,
+    research_interval: int,
+    research_max_attempts: int,
     flac_range: QualityRange,
     m4b_range: QualityRange,
     mp3_range: QualityRange,
@@ -49,7 +52,7 @@
     <h2 class="text-lg">
         Download
     </h2>
-    <Settings.Download.Sliders auto_download={{ auto_download }} flac_range={{ flac_range }} m4b_range={{ m4b_range }} mp3_range={{ mp3_range }} unknown_audio_range={{ unknown_audio_range }} unknown_range={{ unknown_range }} min_seeders={{ min_seeders }} name_ratio={{ name_ratio }} title_ratio={{ title_ratio }} />
+    <Settings.Download.Sliders auto_download={{ auto_download }} research_enabled={{ research_enabled }} research_interval={{ research_interval }} research_max_attempts={{ research_max_attempts }} flac_range={{ flac_range }} m4b_range={{ m4b_range }} mp3_range={{ mp3_range }} unknown_audio_range={{ unknown_audio_range }} unknown_range={{ unknown_range }} min_seeders={{ min_seeders }} name_ratio={{ name_ratio }} title_ratio={{ title_ratio }} />
 
     <hr class="my-4 border-base-200" />
 

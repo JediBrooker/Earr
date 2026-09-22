@@ -6,6 +6,7 @@ from sqlmodel import Session
 from app.internal.auth.authentication import EarrAuth, DetailedUser
 from app.internal.models import GroupEnum
 from app.internal.ranking.quality import IndexerFlag, QualityRange, quality_config
+from app.internal.research_scheduler import lifespan
 from app.routers.api.settings.download import (
     UpdateDownloadSettings,
 )
@@ -15,7 +16,7 @@ from app.routers.api.settings.download import (
 from app.util.db import get_session
 from app.util.templates import catalog_response, catalog_response_toast
 
-router = APIRouter(prefix="/download")
+router = APIRouter(prefix="/download", lifespan=lifespan)
 
 
 @router.get("")
@@ -24,6 +25,9 @@ def read_download(
     admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
 ):
     auto_download = quality_config.get_auto_download(session)
+    research_enabled = quality_config.get_research_enabled(session)
+    research_interval = quality_config.get_research_interval(session)
+    research_max_attempts = quality_config.get_research_max_attempts(session)
     flac_range = quality_config.get_range(session, "quality_flac")
     m4b_range = quality_config.get_range(session, "quality_m4b")
     mp3_range = quality_config.get_range(session, "quality_mp3")
@@ -38,6 +42,9 @@ def read_download(
         "Settings.Download.Index",
         user=admin_user,
         auto_download=auto_download,
+        research_enabled=research_enabled,
+        research_interval=research_interval,
+        research_max_attempts=research_max_attempts,
         flac_range=flac_range,
         m4b_range=m4b_range,
         mp3_range=mp3_range,
@@ -67,7 +74,10 @@ def update_download(
     title_ratio: Annotated[int, Form()],
     session: Annotated[Session, Depends(get_session)],
     admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
+    research_interval: Annotated[int, Form()] = 6 * 60 * 60,
+    research_max_attempts: Annotated[int, Form()] = 5,
     auto_download: Annotated[bool, Form()] = False,
+    research_enabled: Annotated[bool, Form()] = False,
 ):
     flac = QualityRange(from_kbits=flac_from, to_kbits=flac_to)
     m4b = QualityRange(from_kbits=m4b_from, to_kbits=m4b_to)
@@ -80,6 +90,9 @@ def update_download(
     api_update_download_settings(
         UpdateDownloadSettings(
             auto_download=auto_download,
+            research_enabled=research_enabled,
+            research_interval=research_interval,
+            research_max_attempts=research_max_attempts,
             flac_range=flac,
             m4b_range=m4b,
             mp3_range=mp3,
@@ -98,6 +111,9 @@ def update_download(
         "Settings updated",
         "success",
         auto_download=auto_download,
+        research_enabled=research_enabled,
+        research_interval=research_interval,
+        research_max_attempts=research_max_attempts,
         flac_range=flac,
         m4b_range=m4b,
         mp3_range=mp3,

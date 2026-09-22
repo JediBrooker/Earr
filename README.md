@@ -93,6 +93,12 @@ Auto-downloading enables requests by `Trusted` and `Admin` users to directly sta
    1. Enable `Auto Download` at the top.
    2. The remaining heuristics determine the ranking of any sources retrieved from Prowlarr.
    3. Indexer flags allow you to add priorities to certain sources like freeleeches.
+   4. `Keep searching for outstanding requests` retries requests that have not produced files yet,
+      including grabs that stalled. It uses the same quality rules, only applies to requests from
+      trusted users, and gives up after a configurable number of attempts so nothing retries forever.
+
+A source is only downloaded automatically if it clears the quality, seeder and title-match settings.
+If nothing does, nothing is grabbed and the book stays on the wishlist.
 
 ### Audiobookshelf Integration
 

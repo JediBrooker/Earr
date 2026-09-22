@@ -91,6 +91,8 @@ class Audiobook(BaseSQLModel, table=True):
     series: str | None = None
     series_position: str | None = None
     download_status: DownloadStatusEnum | None = Field(default=None, index=True)
+    search_attempts: int = Field(default=0)
+    last_searched_at: datetime | None = Field(default=None)
     updated_at: datetime = Field(
         default_factory=datetime.now,
         sa_column=Column(
@@ -178,6 +180,8 @@ class ManualBookRequest(BaseSQLModel, table=True):
     publish_date: str | None = None
     additional_info: str | None = None
     download_status: DownloadStatusEnum | None = Field(default=None, index=True)
+    search_attempts: int = Field(default=0)
+    last_searched_at: datetime | None = Field(default=None)
     updated_at: datetime = Field(
         default_factory=datetime.now,
         sa_column=Column(

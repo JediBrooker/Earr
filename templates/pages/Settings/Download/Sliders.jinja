@@ -1,5 +1,8 @@
 {#def
     auto_download: bool,
+    research_enabled: bool,
+    research_interval: int,
+    research_max_attempts: int,
     flac_range: QualityRange,
     m4b_range: QualityRange,
     mp3_range: QualityRange,
@@ -23,6 +26,45 @@
                type="checkbox"
                class="checkbox"
                {% if auto_download %}checked{% endif %} />
+    </div>
+    <div class="w-full flex items-center justify-between gap-2 border-t pt-2 border-base-200">
+        <label for="research-enabled">
+            Keep searching for outstanding requests
+        </label>
+        <input id="research-enabled"
+               name="research_enabled"
+               type="checkbox"
+               class="checkbox"
+               {% if research_enabled %}checked{% endif %} />
+    </div>
+    <p class="text-xs opacity-60">
+        Periodically searches again for requests that have not produced files yet, including grabs that
+        stalled. Uses the same quality rules as automatic downloading, only applies to requests from
+        trusted users, and needs Auto Download to be on.
+    </p>
+    <div class="flex gap-2">
+        <div class="w-full">
+            <label for="research-interval" class="text-xs">
+                Retry every <span class="opacity-60">(seconds, minimum 900)</span>
+            </label>
+            <input id="research-interval"
+                   name="research_interval"
+                   type="number"
+                   min="900"
+                   value="{{ research_interval }}"
+                   class="input w-full" />
+        </div>
+        <div class="w-full">
+            <label for="research-max-attempts" class="text-xs">
+                Give up after <span class="opacity-60">(attempts)</span>
+            </label>
+            <input id="research-max-attempts"
+                   name="research_max_attempts"
+                   type="number"
+                   min="1"
+                   value="{{ research_max_attempts }}"
+                   class="input w-full" />
+        </div>
     </div>
     <h3 class="border-t pt-2 border-base-200">
         Quality <span class="text-xs">(kbit/s)</span>
