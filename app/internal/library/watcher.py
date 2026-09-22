@@ -81,10 +81,24 @@ def is_stable(path: Path) -> bool:
 
 
 def find_match(
-    release_title: str, candidates: list[Path], threshold: int
+    release_title: str,
+    candidates: list[Path],
+    threshold: int,
+    book_title: str | None = None,
 ) -> Path | None:
-    """Finds the download folder that belongs to a grabbed release."""
-    wanted = utils.default_process(release_title)
+    """Finds the download folder that belongs to a grabbed release.
+
+    Download clients do not always name the folder after the indexer's listing.
+    A release listed as "Silverthorn by Raymond E Feist [ENG / M4B]" can arrive
+    as "03 Silverthorn", which scores 40 against the release title but 88
+    against the book title, so both are tried and the better score wins.
+
+    Plain ratio is used rather than a partial or token set ratio on purpose:
+    those score "Dune" against "Dune Messiah" as a perfect match, which would
+    happily grab the wrong book in a series.
+    """
+    wanted = [utils.default_process(t) for t in (release_title, book_title) if t]
+    wanted = [w for w in wanted if w]
     if not wanted:
         return None
 
@@ -95,9 +109,9 @@ def find_match(
         name = utils.default_process(
             candidate.stem if candidate.is_file() else candidate.name
         )
-        if name == wanted:
+        if name in wanted:
             return candidate
-        score = fuzz.ratio(wanted, name)
+        score = max(fuzz.ratio(w, name) for w in wanted)
         if score >= best_score:
             best = candidate
             best_score = score
@@ -239,7 +253,7 @@ def scan(session: Session) -> int:
     threshold = library_config.get_match_threshold(session)
     imported = 0
     for entry in pending:
-        match = find_match(entry.release_title, candidates, threshold)
+        match = find_match(entry.release_title, candidates, threshold, entry.book_title)
         if match is None:
             continue
         if not is_stable(match):

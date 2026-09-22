@@ -7,6 +7,7 @@ import pytest
 from sqlmodel import Session, select
 
 from app.internal.library import watcher
+from app.internal.library.watcher import find_match as find_match_with_title
 from app.internal.library.config import library_config
 from app.internal.library.tracking import record_grab
 from app.internal.models import (
@@ -69,6 +70,40 @@ class TestMatching:
         downloads, _ = library
         candidates = self.setup_candidates(downloads)
         assert watcher.find_match("Some Totally Other Book", candidates, 85) is None
+
+    def test_the_book_title_is_tried_when_the_client_renamed_the_folder(
+        self, library: tuple[Path, Path]
+    ):
+        """Seen live: MyAnonamouse listed a release as
+        "Silverthorn by Raymond E Feist [ENG / M4B]" and qBittorrent created
+        "03 Silverthorn", which scores 40 against the release title."""
+        downloads, _ = library
+        (downloads / "03 Silverthorn").mkdir()
+        candidates = sorted(downloads.iterdir())
+
+        match = find_match_with_title(
+            "Silverthorn by Raymond E Feist [ENG / M4B]",
+            candidates,
+            85,
+            "Silverthorn",
+        )
+
+        assert match is not None
+        assert match.name == "03 Silverthorn"
+
+    def test_another_book_in_the_same_series_is_not_matched(
+        self, library: tuple[Path, Path]
+    ):
+        """The reason plain ratio is used rather than a partial or token set
+        ratio: those score Dune against Dune Messiah as a perfect match."""
+        downloads, _ = library
+        (downloads / "Dune").mkdir()
+        candidates = sorted(downloads.iterdir())
+
+        assert (
+            find_match_with_title("Dune Messiah release", candidates, 85, "Dune Messiah")
+            is None
+        )
 
     def test_a_threshold_of_zero_matches_anything(self, library: tuple[Path, Path]):
         downloads, _ = library
