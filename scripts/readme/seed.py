@@ -43,6 +43,8 @@ from app.internal.models import (
     Follow,
     FollowKindEnum,
     GroupEnum,
+    Issue,
+    IssueKindEnum,
     LibraryImport,
     LibraryImportStatusEnum,
     ManualBookRequest,
@@ -52,6 +54,9 @@ from app.internal.download_clients.config import download_client_config
 from app.internal.prowlarr.util import prowlarr_config
 from app.internal.ranking.quality import IndexerFlag, quality_config
 from app.util.db import engine
+
+INDEXERS = ["MyAnonamouse", "AudioBookBay", "NZBgeek"]
+"""Named on grabs, for the Stats page."""
 
 LIBRARY_ROOT = "/data/media/audiobooks"
 TORRENTS = "/data/torrents/audiobooks"
@@ -321,6 +326,7 @@ def seed(session: Session, books: dict[str, Audiobook], password: str) -> None:
             # the stand-in qBittorrent reports progress for any hash it's asked about
             client_id=hashlib.sha1(book.asin.encode()).hexdigest(),
             protocol="torrent",
+            indexer=INDEXERS[len(wanted.key) % len(INDEXERS)],
             created_at=when,
             updated_at=when,
         )
@@ -328,6 +334,9 @@ def seed(session: Session, books: dict[str, Audiobook], password: str) -> None:
             entry.status = LibraryImportStatusEnum.imported
             entry.source_path = f"{TORRENTS}/{release_name(book)}"
             entry.target_path = target_folder(book)
+            # most land within a couple of hours
+            entry.updated_at = when + timedelta(hours=2, minutes=len(wanted.key) * 7)
+            book.quality_format = "m4b"
         elif wanted.status == DownloadStatusEnum.failed:
             entry.status = LibraryImportStatusEnum.failed
             entry.error = "qBittorrent: files missing"
@@ -344,6 +353,19 @@ def seed(session: Session, books: dict[str, Audiobook], password: str) -> None:
             narrators=["LibriVox volunteers"],
             publish_date="1908",
             additional_info="The free LibriVox recording, for the kids",
+        )
+    )
+    session.commit()
+
+    # someone noticed a problem with a book that came in
+    session.add(
+        Issue(
+            asin=books["notw"].asin,
+            book_title=books["notw"].title,
+            user_username="jordan",
+            kind=IssueKindEnum.bad_audio,
+            message="Chapter 12 cuts off half way through and jumps to chapter 14.",
+            created_at=now - timedelta(hours=5),
         )
     )
     session.commit()

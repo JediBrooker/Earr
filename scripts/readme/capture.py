@@ -328,6 +328,8 @@ SHOTS = [
     Shot("calendar", lambda d: "/calendar", wait_for=".calendar-entry"),
     Shot("activity", lambda d: "/activity", wait_for=".queue-item"),
     Shot("books", lambda d: "/library", wait_for=".library-book"),
+    Shot("issues", lambda d: "/issues", wait_for=".issue-row"),
+    Shot("stats", lambda d: "/system/stats", wait_for=".stat"),
     Shot("library", lambda d: "/settings/library", wait_for="#folder-template"),
     Shot(
         "mobile",

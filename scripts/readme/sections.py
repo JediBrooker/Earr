@@ -146,6 +146,10 @@ def notification_events() -> str:
 # here is still listed, just without a description.
 VARIABLE_HINTS: dict[str, str] = {
     "declineReason": "The reason an admin gave for declining a request",
+    "issueKind": "What kind of problem was reported, e.g. Bad audio",
+    "issueMessage": "What the reporter wrote about it",
+    "issueReporter": "Who reported the problem",
+    "issueResolution": "How an admin resolved it",
     "eventType": "Name of the event, e.g. onNewRequest",
     "eventUser": "First user who requested the book",
     "eventUserExtraData": "That user's extra data, set under Settings > Users",
