@@ -17,7 +17,10 @@ from app.internal.recommendations.local import (
     get_popular_books,
     get_recently_requested_books,
 )
+from app.internal.audiobookshelf.catalog import library_asins
+from app.internal.recommendations.listening import listening_seeds, up_next
 from app.internal.recommendations.user_recommendations import (
+    AudiobookRecommendation,
     UserSimsRecommendation,
     get_user_sims_recommendations,
 )
@@ -36,15 +39,29 @@ async def get_user_recommendations(
     limit: int = 20,
     offset: int = 0,
 ) -> UserSimsRecommendation:
+    # what someone listens to says more than what they requested
+    listened = await listening_seeds(session, client_session, user)
     recommendations = await get_user_sims_recommendations(
         session=session,
         client_session=client_session,
         user=user,
-        seed_asins=seed_asins,
+        seed_asins=[*(seed_asins or []), *listened],
         limit=limit,
         offset=offset,
+        exclude_asins=await library_asins(session, client_session),
     )
     return recommendations
+
+
+@router.get("/up-next", response_model=list[AudiobookRecommendation])
+async def get_up_next(
+    session: Annotated[Session, Depends(get_session)],
+    client_session: Annotated[ClientSession, Depends(get_connection)],
+    user: Annotated[DetailedUser, Security(AnyAuth())],
+    limit: int = 12,
+) -> list[AudiobookRecommendation]:
+    """The next book in each series you're listening to in Audiobookshelf."""
+    return await up_next(session, client_session, user, limit)
 
 
 @router.get("/popular", response_model=list[AudiobookPopularity])

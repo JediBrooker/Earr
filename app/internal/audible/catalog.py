@@ -162,7 +162,7 @@ async def get_products(
     return found
 
 
-def _sequence_key(sequence: str) -> tuple[float, str]:
+def sequence_key(sequence: str) -> tuple[float, str]:
     """Orders "2", "2.5" and "10" numerically, with unnumbered books last."""
     try:
         return float(sequence.split("-")[0]), sequence
@@ -225,7 +225,7 @@ async def get_series_products(
 
     products.sort(
         key=lambda p: (
-            _sequence_key(series_sequence(p, series_asin)),
+            sequence_key(series_sequence(p, series_asin)),
             p.release_date,
         )
     )

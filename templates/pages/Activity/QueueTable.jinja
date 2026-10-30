@@ -71,6 +71,10 @@
                                     <div class="min-w-0">
                                         <p class="font-semibold line-clamp-1">
                                             {{ item.title }}
+                                            {% if item.replaces %}
+                                                <span class="badge badge-xs badge-secondary align-middle"
+                                                      title="Replaces the files already in the library once it's in">Upgrade</span>
+                                            {% endif %}
                                         </p>
                                         <p class="text-xs text-base-content/60 line-clamp-1 break-all"
                                            title="{{ item.release_title }}">

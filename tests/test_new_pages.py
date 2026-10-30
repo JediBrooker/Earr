@@ -49,6 +49,10 @@ class TestPages:
             "/settings/users",
             "/settings/security",
             "/settings/library",
+            "/issues",
+            "/issues?status=resolved",
+            "/system/stats",
+            "/wishlist/import",
         ],
     )
     def test_renders_for_an_admin(self, client: TestClient, path: str):
@@ -56,7 +60,8 @@ class TestPages:
         assert response.status_code == 200, response.text[:500]
 
     @pytest.mark.parametrize(
-        "path", ["/system/backups", "/system/logs", "/activity/blocklist"]
+        "path",
+        ["/system/backups", "/system/logs", "/activity/blocklist", "/system/stats"],
     )
     def test_admin_pages_are_refused_to_others(self, client: TestClient, path: str):
         assert client.get(path, auth=READER).status_code == 403
@@ -137,6 +142,44 @@ class TestPages:
         assert "Follow author" in page and "Follow series" in page
         assert "Second &lt;b&gt;one&lt;/b&gt;." in page
         assert "English" in page
+
+    def test_reporting_a_problem(self, client: TestClient, session: Session):
+        book = series_book("B1")
+        book.downloaded = True
+        session.add(book)
+        session.commit()
+        with mock.patch(
+            "app.routers.pages.issues.notify_reported", new=mock.AsyncMock()
+        ):
+            response = client.post(
+                "/issues/hx-report/B1",
+                data={"kind": "bad_audio", "message": "<b>static</b> in chapter 3"},
+                auth=READER,
+            )
+        assert response.status_code == 200
+        assert "An admin will take a look" in response.headers["HX-Trigger"]
+
+        page = client.get("/issues", auth=ADMIN).text
+        assert "Bad audio" in page
+        assert "&lt;b&gt;static&lt;/b&gt; in chapter 3" in page
+        assert "Replace the download" in page
+
+    def test_importing_a_reading_list(self, client: TestClient):
+        csv = (
+            "Book Id,Title,Author,Exclusive Shelf\n"
+            "1,The Way of Kings (The Stormlight Archive #1),Brandon Sanderson,to-read\n"
+        )
+        with mock.patch(
+            "app.internal.reading_list.search_audible_books",
+            new=mock.AsyncMock(return_value=[series_book("B1")]),
+        ):
+            response = client.post(
+                "/wishlist/import/hx-match",
+                files={"file": ("goodreads.csv", csv, "text/csv")},
+                auth=READER,
+            )
+        assert response.status_code == 200, response.text[:300]
+        assert 'name="asin"' in response.text and 'value="B1"' in response.text
 
     def test_an_unknown_book_is_not_found(self, client: TestClient):
         with mock.patch(

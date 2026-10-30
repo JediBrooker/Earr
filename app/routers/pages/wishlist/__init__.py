@@ -16,11 +16,12 @@ from app.util.connection import get_connection
 from app.util.db import get_session
 from app.util.templates import catalog_response, catalog_response_toast
 
-from . import downloaded, manual, sources
+from . import downloaded, import_list, manual, sources
 
 router = APIRouter(prefix="/wishlist")
 
 router.include_router(downloaded.router)
+router.include_router(import_list.router)
 router.include_router(manual.router)
 router.include_router(sources.router)
 

@@ -1,0 +1,52 @@
+{#def
+    user: DetailedUser,
+    counts: WishlistCounts,
+    max_entries: int,
+#}
+
+<WishlistLayout title="Import a reading list" user={{ user }} counts={{ counts }} page="import">
+<div class="flex max-w-5xl flex-col gap-4">
+    <div>
+        <h2 class="text-lg font-semibold">
+            Import a reading list
+        </h2>
+        <p class="text-sm text-base-content/70">
+            Upload your Goodreads or StoryGraph export. Every book on your want-to-read shelf is matched to an
+            audiobook, and you choose which to request.
+        </p>
+        <ul class="mt-2 list-disc pl-5 text-sm text-base-content/70">
+            <li>
+                Goodreads: My Books, then Import and export, then Export Library.
+            </li>
+            <li>
+                The StoryGraph: Manage account, then Export StoryGraph Library.
+            </li>
+        </ul>
+    </div>
+    <form class="flex flex-wrap items-center gap-2"
+          hx-post="{{ base_url }}/wishlist/import/hx-match"
+          hx-encoding="multipart/form-data"
+          hx-target="#import-matches"
+          hx-indicator="#import-matching"
+          hx-disabled-elt="find button">
+        <input type="file"
+               name="file"
+               accept=".csv,text/csv"
+               required
+               class="file-input w-full max-w-sm" />
+        <button class="btn btn-primary">
+            Find the audiobooks
+        </button>
+        <span id="import-matching"
+              class="htmx-indicator flex items-center gap-2 text-sm text-base-content/70">
+            <span class="loading loading-spinner loading-sm"></span>
+            Searching Audible for each book; a long list takes a minute.
+        </span>
+    </form>
+    <p class="text-xs text-base-content/60">
+        Up to {{ max_entries }} books at a time.
+    </p>
+    <div id="import-matches">
+    </div>
+</div>
+</WishlistLayout>

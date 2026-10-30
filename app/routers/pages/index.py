@@ -7,6 +7,7 @@ from sqlalchemy.sql.functions import count
 from sqlmodel import Session, select
 
 from app.internal.audible.types import audible_region_type, get_region_from_settings
+from app.internal.audiobookshelf.config import abs_config
 from app.internal.auth.authentication import EarrAuth, DetailedUser
 from app.internal.models import AudiobookRequest, AudiobookWithRequests
 from app.internal.ranking.quality import quality_config
@@ -27,6 +28,9 @@ from app.routers.api.recommendations import (
 )
 from app.routers.api.recommendations import (
     get_recently_requested_recommendations as api_get_recently_requested_recommendations,
+)
+from app.routers.api.recommendations import (
+    get_up_next as api_get_up_next,
 )
 from app.routers.api.recommendations import (
     get_user_recommendations as api_get_user_recommendations,
@@ -56,6 +60,25 @@ def read_root(
         region=get_region_from_settings(),
         auto_download=quality_config.get_auto_download(session),
         show_popular=show_popular,
+        show_up_next=abs_config.is_connected(session),
+    )
+
+
+@router.get("/hx-up-next")
+async def get_up_next(
+    session: Annotated[Session, Depends(get_session)],
+    client_session: Annotated[ClientSession, Depends(get_connection)],
+    user: Annotated[DetailedUser, Security(EarrAuth())],
+):
+    return catalog_response(
+        "Index.PopularSection",
+        title="Up next",
+        user=user,
+        reasons=await api_get_up_next(session, client_session, user),
+        description="The next book in each series you're listening to",
+        empty="Nothing to continue yet. Once you're half way through a book in a series, the next one shows up here.",
+        region=get_region_from_settings(),
+        auto_download=quality_config.get_auto_download(session),
     )
 
 
@@ -81,7 +104,7 @@ async def get_user_recommendations(
         user=user,
         reasons=result.recommendations,
         view_more="/recommendations/for-you",
-        description="Personalized recommendations based on your requests",
+        description="Personalized recommendations based on what you request and listen to",
         empty="No recommendations available at this time. Request some books to start getting recommendations.",
         region=get_region_from_settings(),
         auto_download=quality_config.get_auto_download(session),

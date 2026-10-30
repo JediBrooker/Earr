@@ -31,9 +31,19 @@ QualityConfigKey = (
         "quality_name_exists_ratio",
         "quality_title_exists_ratio",
         "quality_min_seeders",
+        "quality_upgrade_enabled",
+        "quality_upgrade_cutoff",
+        "quality_upgrade_days",
     ]
 )
 FileFormat = Literal["flac", "m4b", "mp3", "unknown-audio", "unknown"]
+FILE_FORMATS: tuple[FileFormat, ...] = (
+    "flac",
+    "m4b",
+    "mp3",
+    "unknown-audio",
+    "unknown",
+)
 
 
 class QualityRange(pydantic.BaseModel):
@@ -110,6 +120,28 @@ class QualityProfile(StringConfigCache[QualityConfigKey]):
 
     def set_research_max_attempts(self, session: Session, attempts: int):
         self.set_int(session, "quality_research_max_attempts", max(1, attempts))
+
+    def get_upgrade_enabled(self, session: Session) -> bool:
+        """Whether downloaded books keep being searched for a better format."""
+        return bool(self.get_int(session, "quality_upgrade_enabled", 0))
+
+    def set_upgrade_enabled(self, session: Session, enabled: bool):
+        self.set_int(session, "quality_upgrade_enabled", int(enabled))
+
+    def get_upgrade_cutoff(self, session: Session) -> FileFormat:
+        """The format that is good enough: nothing at or above it is upgraded."""
+        value = self.get(session, "quality_upgrade_cutoff", "m4b")
+        return value if value in FILE_FORMATS else "m4b"
+
+    def set_upgrade_cutoff(self, session: Session, cutoff: FileFormat):
+        self.set(session, "quality_upgrade_cutoff", cutoff)
+
+    def get_upgrade_days(self, session: Session) -> int:
+        """How long after a download Earr keeps looking for an upgrade."""
+        return max(1, self.get_int(session, "quality_upgrade_days", 30))
+
+    def set_upgrade_days(self, session: Session, days: int):
+        self.set_int(session, "quality_upgrade_days", max(1, days))
 
     def get_auto_download(self, session: Session) -> bool:
         return bool(self.get_int(session, "quality_auto_download", 0))

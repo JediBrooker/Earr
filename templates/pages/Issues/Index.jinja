@@ -1,0 +1,93 @@
+{#def
+    user: DetailedUser,
+    issues: list[Issue],
+    status: str,
+#}
+
+<BaseLayout title="Issues" user={{ user }}>
+<div class="mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 sm:p-6 lg:p-8">
+    <div>
+        <h1 class="text-3xl font-bold tracking-tight">
+            Issues
+        </h1>
+        <p class="text-sm text-base-content/70">
+            {% if user.is_admin() %}
+                Problems people reported with books in the library. Replacing a download blocklists the release and
+                grabs another; its files replace the bad ones once it's in.
+            {% else %}
+                Problems you reported. Report one from a book's page.
+            {% endif %}
+        </p>
+    </div>
+    <div role="tablist" class="tabs tabs-box w-fit">
+        <a preload
+           href="{{ base_url }}/issues"
+           role="tab"
+           class="tab {% if status == 'open' %}tab-active{% endif %}">Open</a>
+        <a preload
+           href="{{ base_url }}/issues?status=resolved"
+           role="tab"
+           class="tab {% if status == 'resolved' %}tab-active{% endif %}">Resolved</a>
+    </div>
+
+    {% if not issues %}
+        <div class="rounded-box border border-dashed border-base-content/20 p-10 text-center">
+            <p class="font-medium">
+                {{ "No open issues" if status == "open" else "Nothing resolved yet" }}
+            </p>
+        </div>
+    {% else %}
+        <ul class="flex flex-col divide-y divide-base-content/10 rounded-box border border-base-content/10">
+            {% for issue in issues %}
+                <li class="issue-row flex flex-col gap-3 p-4 sm:flex-row sm:items-start">
+                    <div class="min-w-0 flex-1">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <a class="font-semibold hover:underline"
+                               href="{{ base_url }}/book/{{ issue.asin }}">{{ issue.book_title }}</a>
+                            <span class="badge badge-sm badge-warning">{{ issue.kind.label }}</span>
+                        </div>
+                        {% if issue.message %}
+                            <p class="mt-1 text-sm whitespace-pre-line">
+                                {{ issue.message }}
+                            </p>
+                        {% endif %}
+                        <p class="mt-1 text-xs text-base-content/60">
+                            {% if user.is_admin() %}From {{ issue.user_username }} · {% endif %}{{ issue.created_at.strftime("%-d %b %Y") }}
+                        </p>
+                        {% if issue.resolution %}
+                            <p class="mt-1 text-sm text-success">
+                                {{ issue.resolution }}{% if issue.resolved_by %} <span class="text-xs text-base-content/60">({{ issue.resolved_by }}{% if issue.resolved_at %}, {{ issue.resolved_at.strftime("%-d %b") }}{% endif %})</span>{% endif %}
+                            </p>
+                        {% endif %}
+                    </div>
+                    {% if user.is_admin() and status == "open" %}
+                        <div class="flex shrink-0 flex-col gap-2 sm:w-72">
+                            <button class="btn btn-sm btn-primary"
+                                    hx-post="{{ base_url }}/issues/{{ issue.id }}/hx-replace"
+                                    hx-swap="none"
+                                    hx-disabled-elt="this"
+                                    hx-confirm="Blocklist the release this book was downloaded from and grab another?"
+                                    hx-on::after-request="if (event.detail.successful) setTimeout(() => location.reload(), 1500)">
+                                Replace the download
+                            </button>
+                            <form class="join w-full"
+                                  hx-post="{{ base_url }}/issues/{{ issue.id }}/hx-resolve"
+                                  hx-swap="none"
+                                  hx-on::after-request="if (event.detail.successful) setTimeout(() => location.reload(), 800)">
+                                <input name="resolution"
+                                       type="text"
+                                       maxlength="2000"
+                                       placeholder="Note for them (optional)"
+                                       class="input input-sm join-item w-full" />
+                                <button class="btn btn-sm join-item">
+                                    Resolve
+                                </button>
+                            </form>
+                        </div>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+</div>
+</BaseLayout>

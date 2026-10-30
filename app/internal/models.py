@@ -96,6 +96,8 @@ class Audiobook(BaseSQLModel, table=True):
     series_position: str | None = None
     language: str | None = None
     """As Audible names it, e.g. "english". Unknown for books cached before it was stored."""
+    quality_format: str | None = None
+    """Format of the release last grabbed (flac, m4b, mp3, ...), to know when an upgrade is worth it."""
     download_status: DownloadStatusEnum | None = Field(default=None, index=True)
     search_attempts: int = Field(default=0)
     last_searched_at: datetime | None = Field(default=None)
@@ -331,6 +333,10 @@ class EventEnum(str, Enum):
     """An admin approved a request from someone whose requests need approval."""
     on_request_declined = "onRequestDeclined"
     """An admin declined a request. `{declineReason}` holds the reason they gave."""
+    on_issue_reported = "onIssueReported"
+    """Someone reported a problem with a book. `{issueKind}` and `{issueMessage}` say what."""
+    on_issue_resolved = "onIssueResolved"
+    """An admin resolved a reported problem. `{issueResolution}` says how."""
 
 
 class NotificationBodyTypeEnum(str, Enum):
@@ -389,6 +395,8 @@ class LibraryImport(BaseSQLModel, table=True):
     guid: str | None = None
     """Prowlarr's id for the release, so a bad one can be blocklisted exactly."""
     indexer: str | None = None
+    replaces: bool = False
+    """An upgrade or replacement: the book's old audio files go once this one is in."""
     status: LibraryImportStatusEnum = Field(
         default=LibraryImportStatusEnum.pending,
         index=True,
@@ -476,6 +484,54 @@ class BlocklistedRelease(BaseSQLModel, table=True):
             nullable=False,
         ),
     )
+
+
+class IssueKindEnum(str, Enum):
+    wrong_book = "wrong_book"
+    bad_audio = "bad_audio"
+    incomplete = "incomplete"
+    other = "other"
+
+    @property
+    def label(self) -> str:
+        return {
+            "wrong_book": "Wrong book",
+            "bad_audio": "Bad audio",
+            "incomplete": "Missing parts",
+            "other": "Something else",
+        }[self.value]
+
+
+class IssueStatusEnum(str, Enum):
+    open = "open"
+    resolved = "resolved"
+
+
+class Issue(BaseSQLModel, table=True):
+    """A problem someone reported with a book that reached the library."""
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    asin: str = Field(index=True)
+    book_title: str
+    user_username: str = Field(foreign_key="user.username", ondelete="CASCADE")
+    kind: IssueKindEnum
+    message: str | None = None
+    status: IssueStatusEnum = Field(
+        default=IssueStatusEnum.open,
+        index=True,
+        sa_column_kwargs={"server_default": "open"},
+    )
+    resolution: str | None = None
+    resolved_by: str | None = None
+    created_at: datetime = Field(
+        default_factory=datetime.now,
+        sa_column=Column(
+            server_default=func.now(),
+            type_=DateTime,
+            nullable=False,
+        ),
+    )
+    resolved_at: datetime | None = None
 
 
 class APIKeyResponse(BaseModel):

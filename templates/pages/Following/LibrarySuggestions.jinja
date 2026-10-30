@@ -1,0 +1,56 @@
+{#def
+    suggestions: list[FollowSuggestion],
+#}
+
+{% set open = suggestions | rejectattr("following") | list %}
+<form class="flex flex-col gap-3 rounded-box border border-base-content/10 p-4"
+      hx-post="{{ base_url }}/following/hx-follow-many"
+      hx-swap="none"
+      hx-disabled-elt="find button[type=submit]"
+      hx-on::after-request="if (event.detail.successful) setTimeout(() => location.reload(), 4000)">
+    <div class="flex flex-wrap items-end justify-between gap-2">
+        <div>
+            <h2 class="font-semibold">
+                From your library
+            </h2>
+            <p class="text-sm text-base-content/70">
+                {% if open %}
+                    Series and authors you have books from, most books first. Tick the ones whose new books you want.
+                {% else %}
+                    You already follow everything in your library that Audible knows about.
+                {% endif %}
+            </p>
+        </div>
+        {% if open %}
+            <div class="flex gap-2">
+                <button type="button"
+                        class="btn btn-sm btn-ghost"
+                        onclick="this.closest('form').querySelectorAll('input[name=pick]').forEach(b => b.checked = !b.checked)">
+                    Invert
+                </button>
+                <button type="submit" class="btn btn-sm btn-primary">
+                    Follow the ticked ones
+                </button>
+            </div>
+        {% endif %}
+    </div>
+    {% if open %}
+        <ul class="grid gap-x-6 gap-y-1 sm:grid-cols-2">
+            {% for s in open %}
+                <li>
+                    <label class="flex items-center gap-3 rounded px-1 py-1 hover:bg-base-200">
+                        <input type="checkbox"
+                               name="pick"
+                               value='{{ {"kind": s.kind.value, "id": s.audible_id, "name": s.name} | tojson }}'
+                               class="checkbox checkbox-sm"
+                               {% if s.kind.value == "series" %}checked{% endif %} />
+                        <span class="min-w-0 flex-1">
+                            <span class="line-clamp-1 font-medium">{{ s.name }}</span>
+                            <span class="text-xs text-base-content/60">{{ "Series" if s.kind.value == "series" else "Author" }} · {{ s.owned }} in your library</span>
+                        </span>
+                    </label>
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+</form>

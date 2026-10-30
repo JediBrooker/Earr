@@ -1,0 +1,100 @@
+{#def
+    matches: list[ListMatch],
+    source: str,
+    skipped: int,
+    allowance: Allowance | None = None,
+#}
+
+{% set new_count = matches | selectattr("status", "equalto", "new") | list | length %}
+<form class="flex flex-col gap-3"
+      hx-post="{{ base_url }}/wishlist/import/hx-request"
+      hx-swap="none"
+      hx-disabled-elt="find button[type=submit]"
+      hx-on::after-request="if (event.detail.successful) setTimeout(() => location.assign('{{ base_url }}/wishlist'), 1500)">
+    <div class="flex flex-wrap items-end justify-between gap-2">
+        <p class="text-sm">
+            {{ matches | length }} book{{ "" if matches | length == 1 else "s" }} on your {{ source }} want-to-read shelf,
+            {{ new_count }} to request.
+            {% if skipped %}<span class="text-base-content/60">{{ skipped }} more were left out; import again after these.</span>{% endif %}
+            {% if allowance %}<span class="text-base-content/60">You can request {{ allowance.remaining }} more {{ allowance.period_label }}.</span>{% endif %}
+        </p>
+        <button type="submit"
+                class="btn btn-primary btn-sm"
+                {% if not new_count %}disabled{% endif %}>
+            Request the ticked books
+        </button>
+    </div>
+    <div class="overflow-x-auto rounded-box border border-base-content/10">
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th>
+                    </th>
+                    <th>
+                        On your shelf
+                    </th>
+                    <th>
+                        Audiobook
+                    </th>
+                    <th>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for match in matches %}
+                    {% set book = match.book.book if match.book else None %}
+                    <tr class="import-row" data-status="{{ match.status }}">
+                        <td>
+                            {% if match.status == "new" %}
+                                <input type="checkbox"
+                                       name="asin"
+                                       value="{{ book.asin }}"
+                                       class="checkbox checkbox-sm"
+                                       checked />
+                            {% endif %}
+                        </td>
+                        <td>
+                            <p class="font-medium line-clamp-1">
+                                {{ match.entry.title }}
+                            </p>
+                            <p class="text-xs text-base-content/60">
+                                {{ match.entry.author }}
+                            </p>
+                        </td>
+                        <td>
+                            {% if book %}
+                                <div class="flex items-center gap-2">
+                                    <div class="size-10 shrink-0 overflow-hidden rounded bg-base-200">
+                                        {% if book.cover_image %}
+                                            <img src="{{ book.cover_image }}"
+                                                 alt=""
+                                                 loading="lazy"
+                                                 class="size-full object-cover" />
+                                        {% endif %}
+                                    </div>
+                                    <div class="min-w-0">
+                                        <a class="link link-hover line-clamp-1"
+                                           href="{{ base_url }}/book/{{ book.asin }}"
+                                           target="_blank">{{ book.title }}</a>
+                                        <p class="text-xs text-base-content/60 line-clamp-1">
+                                            {{ book.narrators | join(", ") }}{% if book.runtime_length_min %} · {{ book.runtime_length_hrs }}h{% endif %}
+                                        </p>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <span class="text-sm text-base-content/50">No audiobook found</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-right">
+                            {% if match.status == "owned" %}
+                                <span class="badge badge-sm badge-success">In library</span>
+                            {% elif match.status == "requested" %}
+                                <span class="badge badge-sm badge-neutral">Requested</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</form>

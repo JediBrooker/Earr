@@ -30,6 +30,18 @@ def record_grab(
     if not library_config.get_enabled(session):
         return None
 
+    # a book that is already in the library is being upgraded or replaced, so
+    # its old files go once the new ones are in
+    replaces = (
+        session.exec(
+            select(LibraryImport).where(
+                LibraryImport.asin_or_uuid == asin_or_uuid,
+                LibraryImport.status == LibraryImportStatusEnum.imported,
+            )
+        ).first()
+        is not None
+    )
+
     existing = session.exec(
         select(LibraryImport).where(
             LibraryImport.asin_or_uuid == asin_or_uuid,
@@ -44,6 +56,7 @@ def record_grab(
         existing.protocol = protocol
         existing.guid = guid
         existing.indexer = indexer
+        existing.replaces = replaces
         session.add(existing)
         session.commit()
         return existing
@@ -56,6 +69,7 @@ def record_grab(
         protocol=protocol,
         guid=guid,
         indexer=indexer,
+        replaces=replaces,
     )
     session.add(entry)
     session.commit()

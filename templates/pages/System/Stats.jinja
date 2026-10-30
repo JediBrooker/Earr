@@ -1,0 +1,215 @@
+{#def
+    user: DetailedUser,
+    stats: Stats,
+#}
+
+<SystemLayout user={{ user }} page="stats" title="Stats">
+<div class="flex flex-col gap-8">
+    <div class="stats stats-vertical w-full border border-base-content/10 sm:stats-horizontal">
+        <div class="stat">
+            <div class="stat-title">
+                Requests
+            </div>
+            <div class="stat-value">
+                {{ stats.total_requests }}
+            </div>
+            <div class="stat-desc">
+                {{ stats.requests_last_30_days }} in the last 30 days
+            </div>
+        </div>
+        <div class="stat">
+            <div class="stat-title">
+                In the library
+            </div>
+            <div class="stat-value">
+                {{ stats.books_in_library }}
+            </div>
+            <div class="stat-desc">
+                requested books
+            </div>
+        </div>
+        <div class="stat">
+            <div class="stat-title">
+                Downloads that worked
+            </div>
+            <div class="stat-value">
+                {{ (stats.success_rate | string) ~ "%" if stats.success_rate is not none else "–" }}
+            </div>
+            <div class="stat-desc">
+                reached the library, of those that finished
+            </div>
+        </div>
+        <div class="stat">
+            <div class="stat-title">
+                Time to library
+            </div>
+            <div class="stat-value">
+                {% if stats.median_hours_to_library is none %}
+                    –
+                {% elif stats.median_hours_to_library < 1 %}
+                    {{ (stats.median_hours_to_library * 60) | round | int }}m
+                {% else %}
+                    {{ stats.median_hours_to_library }}h
+                {% endif %}
+            </div>
+            <div class="stat-desc">
+                median, from grab to library
+            </div>
+        </div>
+    </div>
+
+    <div class="grid gap-8 lg:grid-cols-2">
+        <section class="flex flex-col gap-3">
+            <h2 class="text-lg font-semibold">
+                Requests per month
+            </h2>
+            <div class="flex h-40 items-end gap-1 rounded-box border border-base-content/10 p-3">
+                {% for bar in stats.months %}
+                    <div class="flex h-full flex-1 flex-col items-center justify-end gap-1"
+                         title="{{ bar.count }} in {{ bar.label }}">
+                        <span class="text-[10px] text-base-content/60">{{ bar.count or "" }}</span>
+                        <div class="w-full rounded-t bg-primary"
+                             style="height: {{ bar.percent }}%;
+                                    min-height: {{ 2 if bar.count else 0 }}px">
+                        </div>
+                        <span class="text-[10px] text-base-content/60">{{ bar.label }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+        </section>
+        <section class="flex flex-col gap-3">
+            <h2 class="text-lg font-semibold">
+                Most requested authors
+            </h2>
+            {% if not stats.authors %}
+                <p class="text-sm text-base-content/60">
+                    No requests yet.
+                </p>
+            {% endif %}
+            <ul class="flex flex-col gap-1.5">
+                {% for bar in stats.authors %}
+                    <li class="grid grid-cols-[10rem_1fr_2rem] items-center gap-2 text-sm">
+                        <span class="truncate" title="{{ bar.label }}">{{ bar.label }}</span>
+                        <div class="h-2 rounded bg-base-200">
+                            <div class="h-2 rounded bg-secondary" style="width: {{ bar.percent }}%">
+                            </div>
+                        </div>
+                        <span class="text-right text-base-content/70">{{ bar.count }}</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        </section>
+    </div>
+
+    <section class="flex flex-col gap-3">
+        <h2 class="text-lg font-semibold">
+            People
+        </h2>
+        <div class="overflow-x-auto rounded-box border border-base-content/10">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>
+                            Who
+                        </th>
+                        <th class="text-right">
+                            Requests
+                        </th>
+                        <th class="text-right">
+                            Last 30 days
+                        </th>
+                        <th class="text-right">
+                            In the library
+                        </th>
+                        <th class="text-right">
+                            Problems reported
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for person in stats.people %}
+                        <tr>
+                            <td>
+                                {{ person.username }} <span class="text-xs text-base-content/50">{{ person.group }}</span>
+                            </td>
+                            <td class="text-right">
+                                {{ person.requests }}
+                            </td>
+                            <td class="text-right">
+                                {{ person.last_30_days }}
+                            </td>
+                            <td class="text-right">
+                                {{ person.in_library }}
+                            </td>
+                            <td class="text-right">
+                                {{ person.issues }}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="flex flex-col gap-3">
+        <div>
+            <h2 class="text-lg font-semibold">
+                Indexers
+            </h2>
+            <p class="text-xs text-base-content/60">
+                Grabs Earr followed to the end. The indexer is recorded for grabs from this version on.
+            </p>
+        </div>
+        {% if not stats.indexers %}
+            <p class="text-sm text-base-content/60">
+                No finished downloads yet.
+            </p>
+        {% else %}
+            <div class="overflow-x-auto rounded-box border border-base-content/10">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>
+                                Indexer
+                            </th>
+                            <th class="text-right">
+                                Grabs
+                            </th>
+                            <th class="text-right">
+                                Reached the library
+                            </th>
+                            <th class="text-right">
+                                Failed
+                            </th>
+                            <th class="text-right">
+                                Success
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in stats.indexers %}
+                            <tr>
+                                <td>
+                                    {{ row.indexer }}
+                                </td>
+                                <td class="text-right">
+                                    {{ row.grabs }}
+                                </td>
+                                <td class="text-right">
+                                    {{ row.imported }}
+                                </td>
+                                <td class="text-right">
+                                    {{ row.failed }}
+                                </td>
+                                <td class="text-right">
+                                    {{ (row.success_rate | string) ~ "%" if row.success_rate is not none else "–" }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </section>
+</div>
+</SystemLayout>

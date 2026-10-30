@@ -3,6 +3,7 @@
     auto_download: bool,
     region: audible_region_type,
     show_popular: bool, # no need to show popular if sole user with requests
+    show_up_next: bool = False,
 #}
 
 <BaseLayout title="Earr" user={{ user }}>
@@ -28,7 +29,10 @@
         </div>
     </div>
 
-    <Index.PopularSection title="For You" user={{ user }} view_more="/recommendations/for-you" lazy_url="/hx-for-you" description="Personalized recommendations based on your requests" empty="No recommendations available at this time. Request some books to start getting recommendations." region={{ region }} auto_start_download={{ auto_download }} />
+    {% if show_up_next %}
+        <Index.PopularSection title="Up next" user={{ user }} lazy_url="/hx-up-next" description="The next book in each series you're listening to" empty="Nothing to continue yet." region={{ region }} auto_start_download={{ auto_download }} />
+    {% endif %}
+    <Index.PopularSection title="For You" user={{ user }} view_more="/recommendations/for-you" lazy_url="/hx-for-you" description="Personalized recommendations based on what you request and listen to" empty="No recommendations available at this time. Request some books to start getting recommendations." region={{ region }} auto_start_download={{ auto_download }} />
     {% if show_popular %}
         <Index.PopularSection title="Popular" user={{ user }} lazy_url="/hx-popular" description="The most popular books on the instance" empty="No popular recommendations available at this time. Request some books to start getting recommendations." region={{ region }} auto_start_download={{ auto_download }} />
     {% endif %}

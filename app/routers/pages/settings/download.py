@@ -7,7 +7,12 @@ from sqlmodel import Session
 from app.internal.auth.authentication import EarrAuth, DetailedUser
 from app.internal.language import LANGUAGES, language_config
 from app.internal.models import GroupEnum
-from app.internal.ranking.quality import IndexerFlag, QualityRange, quality_config
+from app.internal.ranking.quality import (
+    FileFormat,
+    IndexerFlag,
+    QualityRange,
+    quality_config,
+)
 from app.internal.research_scheduler import lifespan
 from app.routers.api.settings.download import (
     UpdateDownloadSettings,
@@ -58,7 +63,35 @@ def read_download(
         title_ratio=title_ratio,
         indexer_flags=flags,
         languages=_language_options(session),
+        upgrades=UpgradeSettings(
+            enabled=quality_config.get_upgrade_enabled(session),
+            cutoff=quality_config.get_upgrade_cutoff(session),
+            days=quality_config.get_upgrade_days(session),
+            formats=[f for f in quality_config.get_format_order(session)],
+        ),
     )
+
+
+class UpgradeSettings(BaseModel):
+    enabled: bool
+    cutoff: str
+    days: int
+    formats: list[str]
+    """In the configured order, best first."""
+
+
+@router.post("/hx-upgrades")
+def update_upgrades(
+    session: Annotated[Session, Depends(get_session)],
+    _: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
+    cutoff: Annotated[FileFormat, Form()] = "m4b",
+    days: Annotated[int, Form()] = 30,
+    enabled: Annotated[bool, Form()] = False,
+):
+    quality_config.set_upgrade_enabled(session, enabled)
+    quality_config.set_upgrade_cutoff(session, cutoff)
+    quality_config.set_upgrade_days(session, days)
+    return toast_response("Upgrade settings saved")
 
 
 class LanguageOption(BaseModel):

@@ -22,7 +22,9 @@ from app.internal.library.metadata import write_metadata
 from app.internal.library.organizer import (
     OrganizeError,
     has_incomplete_files,
+    iter_source_files,
     organize,
+    remove_replaced,
     resolve_target_dir,
 )
 from app.internal.models import (
@@ -272,12 +274,19 @@ def import_single(session: Session, entry: LibraryImport, source: Path) -> None:
     entry.source_path = str(source)
     try:
         target_dir = resolve_target_dir(session, book)
+        # read before organizing, since moving takes the source away
+        incoming: set[Path] = (
+            set(iter_source_files(source)) if source.exists() else set[Path]()
+        )
         target_dir = organize(
             source=source,
             target_dir=target_dir,
             mode=library_config.get_mode(session),
-            overwrite=library_config.get_overwrite(session),
+            # an upgrade has to replace files that happen to share a name
+            overwrite=entry.replaces or library_config.get_overwrite(session),
         )
+        if entry.replaces:
+            remove_replaced(target_dir, keep=incoming)
     except (OrganizeError, OSError) as e:
         logger.error(
             "Library: failed to organize download",

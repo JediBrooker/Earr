@@ -1,6 +1,6 @@
 """Background jobs that keep requests moving without anyone clicking anything:
 checking followed authors and series, searching for pre-orders on release
-day, and taking scheduled backups."""
+day, looking for quality upgrades, and taking scheduled backups."""
 
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
@@ -11,6 +11,8 @@ from fastapi import FastAPI
 from app.internal.backups import scheduled_backup
 from app.internal.follows import CHECK_INTERVAL, check_all_follows
 from app.internal.research import search_new_releases
+from app.internal.upgrades import INTERVAL_SECONDS as UPGRADE_INTERVAL
+from app.internal.upgrades import look_for_upgrades
 from app.util.log import logger
 
 RELEASE_CHECK_INTERVAL = 60 * 60
@@ -51,6 +53,15 @@ async def lifespan(app: FastAPI):
         max_instances=1,
         coalesce=True,
         next_run_time=now + timedelta(minutes=2),
+    )
+    _ = _scheduler.add_job(
+        look_for_upgrades,
+        "interval",
+        seconds=UPGRADE_INTERVAL,
+        id="upgrades",
+        max_instances=1,
+        coalesce=True,
+        next_run_time=now + timedelta(minutes=15),
     )
     _ = _scheduler.add_job(
         scheduled_backup,

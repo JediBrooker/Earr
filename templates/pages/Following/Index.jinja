@@ -1,6 +1,7 @@
 {#def
     user: DetailedUser,
     follows: list[FollowSummary],
+    abs_connected: bool = False,
 #}
 
 <BaseLayout title="Following" user={{ user }}>
@@ -35,6 +36,22 @@
         </form>
         <div id="follow-candidates">
         </div>
+        {% if abs_connected %}
+            <div id="library-suggestions">
+                <button class="btn btn-sm"
+                        hx-get="{{ base_url }}/following/hx-library"
+                        hx-target="#library-suggestions"
+                        hx-indicator="#library-looking"
+                        hx-disabled-elt="this">
+                    Suggest from my Audiobookshelf library
+                </button>
+                <span id="library-looking"
+                      class="htmx-indicator ml-2 inline-flex items-center gap-2 text-sm text-base-content/70">
+                    <span class="loading loading-spinner loading-sm"></span>
+                    Looking up your series on Audible…
+                </span>
+            </div>
+        {% endif %}
     </section>
 
     {% if not follows %}

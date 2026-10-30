@@ -44,6 +44,7 @@ async def get_user_sims_recommendations(
     seed_asins: Iterable[str] | None = None,
     limit: int = 10,
     offset: int = 0,
+    exclude_asins: set[str] | None = None,
 ) -> UserSimsRecommendation:
     """
     Build personalized recommendations by aggregating Audible "similar" results
@@ -144,7 +145,8 @@ async def get_user_sims_recommendations(
     # Build candidate score list
     candidate_scores: list[_BookScore] = []
     for sim in similar_books:
-        if sim.book.downloaded:
+        # already on the shelf, whether Earr put it there or not
+        if sim.book.downloaded or (exclude_asins and sim.book.asin in exclude_asins):
             continue
 
         avg_pos = sum(positions[sim.book.asin]) / max(1, len(positions[sim.book.asin]))
