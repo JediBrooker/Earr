@@ -147,6 +147,35 @@ class SabnzbdClient(DownloadClient):
         return bool(payload and payload.get("status") is True)
 
     @override
+    async def remove(
+        self,
+        client_session: ClientSession,
+        *,
+        client_id: str | None = None,
+        name: str | None = None,
+        delete_files: bool = True,
+    ) -> bool:
+        # a job is in the queue while downloading and in history afterwards
+        for section in ("queue", "history"):
+            payload = await self._call(client_session, section, limit="200")
+            slot = (
+                self._pick(_slots(payload, section), client_id, name, "nzo_id")
+                if payload
+                else None
+            )
+            if slot is None:
+                continue
+            result = await self._call(
+                client_session,
+                section,
+                name="delete",
+                value=_s(slot, "nzo_id"),
+                del_files="1" if delete_files else "0",
+            )
+            return bool(result and result.get("status") is True)
+        return False
+
+    @override
     async def find(
         self,
         client_session: ClientSession,

@@ -7,6 +7,13 @@ from aiohttp import ClientSession
 from rapidfuzz import fuzz, utils
 from sqlmodel import Session
 
+from app.internal import blocklist
+from app.internal.language import (
+    LANGUAGES,
+    detect_release_languages,
+    language_label,
+    wanted_languages,
+)
 from app.internal.models import Audiobook, ManualBookRequest, ProwlarrSource
 from app.internal.ranking.quality import (
     FileFormat,
@@ -117,6 +124,8 @@ class CompareSource:
         self.session = session
         self.book = book
         self.is_manual = is_manual
+        self.blocklist = blocklist.load(session)
+        self.languages = wanted_languages(session, book)
         self.compare_order = [
             self._compare_valid,
             self._compare_title,
@@ -213,6 +222,14 @@ class CompareSource:
             self._author_matches(a.source) > 0 or self._narrator_matches(a.source) > 0
         )
 
+    def _release_languages(self, source: ProwlarrSource) -> set[str]:
+        return detect_release_languages(source.title, self.book.title)
+
+    def _language_ok(self, source: ProwlarrSource) -> bool:
+        """A release that doesn't say its language is given the benefit of the doubt."""
+        found = self._release_languages(source)
+        return not found or bool(found & self.languages)
+
     def is_valid(self, a: RankSource) -> bool:
         """Whether a source clears the configured bar at all.
 
@@ -220,6 +237,8 @@ class CompareSource:
         junk, the best of them is still junk, so this is what decides whether a
         source may be grabbed without a human looking at it.
         """
+        if self.blocklist.blocks(a.source) or not self._language_ok(a.source):
+            return False
         valid = self._is_valid_quality(a) and self._has_enough_seeders(a.source)
         # a reasonable match with the book: title, or author/narrator
         return valid and self._has_minimum_match(a)
@@ -228,6 +247,37 @@ class CompareSource:
         """Spells out what is_valid checked, plus what else moved the source up or down."""
         source = a.source
         checks: list[SourceCheck] = []
+
+        if self.blocklist.blocks(source):
+            checks.append(
+                SourceCheck(
+                    label="blocklisted",
+                    passed=False,
+                    blocking=True,
+                    hint=(
+                        "This release failed or was rejected before. Remove it from "
+                        "the blocklist under Activity to allow it again."
+                    ),
+                )
+            )
+
+        found = self._release_languages(source)
+        if found:
+            ok = bool(found & self.languages)
+            wanted = ", ".join(
+                LANGUAGES.get(language, language) for language in sorted(self.languages)
+            )
+            checks.append(
+                SourceCheck(
+                    label=" / ".join(language_label(f) for f in sorted(found)),
+                    passed=ok,
+                    blocking=not ok,
+                    hint=(
+                        f"The release name says what language it is in. Wanted: {wanted}. "
+                        "Set preferred languages under Settings > Download."
+                    ),
+                )
+            )
 
         # any one of title, author or narrator is enough (see _has_minimum_match),
         # so a miss only blocks the source when all of them miss

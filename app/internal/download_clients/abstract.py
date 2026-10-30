@@ -81,6 +81,20 @@ class DownloadClient(ABC):
         """
 
     @abstractmethod
+    async def remove(
+        self,
+        client_session: ClientSession,
+        *,
+        client_id: str | None = None,
+        name: str | None = None,
+        delete_files: bool = True,
+    ) -> bool:
+        """Removes a job, and its downloaded data unless told not to.
+
+        Returns whether the client found the job and removed it.
+        """
+
+    @abstractmethod
     async def find(
         self,
         client_session: ClientSession,

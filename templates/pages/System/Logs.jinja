@@ -1,0 +1,40 @@
+{#def
+    user: DetailedUser,
+    lines: list[LogLine],
+    level: str,
+    query: str,
+    debug_kept: bool,
+#}
+
+<SystemLayout user={{ user }} page="logs" title="Logs">
+<form class="flex flex-wrap items-center gap-2"
+      hx-get="{{ base_url }}/system/hx-logs"
+      hx-target="#log-lines"
+      hx-swap="outerHTML"
+      hx-trigger="change, input changed delay:400ms from:find input[type=search]"
+      hx-push-url="{{ base_url }}/system/logs">
+    <select name="level" class="select select-sm w-36">
+        {% for value, label in [("debug", "Debug"), ("info", "Info"), ("warning", "Warnings"), ("error", "Errors")] %}
+            <option value="{{ value }}" {% if level == value %}selected{% endif %}>{{ label }}{{ " and up" if value != "error" else "" }}</option>
+        {% endfor %}
+    </select>
+    <label class="input input-sm w-full max-w-xs">
+        <span class="opacity-50 [&_svg]:size-4">
+            <icons.Search />
+        </span>
+        <input type="search" name="q" value="{{ query }}" placeholder="Filter" />
+    </label>
+    <label class="flex items-center gap-2 text-sm">
+        <input id="log-follow" type="checkbox" class="toggle toggle-sm" checked />
+        Live
+    </label>
+    <a class="btn btn-sm btn-ghost ml-auto"
+       href="{{ base_url }}/system/logs/download">Download</a>
+</form>
+{% if not debug_kept %}
+    <p class="text-xs text-base-content/60">
+        Debug lines are only kept when EARR_APP__LOG_LEVEL is DEBUG. Lines are kept in memory, so a restart clears them.
+    </p>
+{% endif %}
+<System.LogLines lines={{ lines }} level={{ level }} query={{ query }} />
+</SystemLayout>

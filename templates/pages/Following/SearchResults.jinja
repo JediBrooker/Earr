@@ -1,0 +1,30 @@
+{#def
+    candidates: list[FollowCandidate],
+    query: str,
+#}
+
+{% if query and not candidates %}
+    <p class="text-sm text-base-content/60">
+        No authors or series found for “{{ query }}”.
+    </p>
+{% elif candidates %}
+    <ul class="grid gap-2 sm:grid-cols-2">
+        {% for c in candidates %}
+            <li class="flex items-center justify-between gap-3 rounded-box border border-base-content/10 p-3">
+                <div class="min-w-0">
+                    <p class="font-semibold line-clamp-1">
+                        {{ c.name }}
+                    </p>
+                    <p class="text-xs text-base-content/60 line-clamp-1">
+                        {{ "Author" if c.kind.value == "author" else "Series" }} · {{ c.detail }}
+                    </p>
+                </div>
+                {% if c.following %}
+                    <span class="badge badge-secondary">Following</span>
+                {% else %}
+                    <FollowButton kind={{ c.kind.value }} audible_id={{ c.audible_id }} label={{ c.name }} style="badge" />
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+{% endif %}

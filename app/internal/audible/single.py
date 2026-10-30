@@ -1,6 +1,7 @@
 from aiohttp import ClientSession
 
 from app.internal.audible.types import (
+    RESPONSE_GROUPS,
     AudibleSingleResponse,
     audible_region_type,
     audible_regions,
@@ -19,7 +20,7 @@ async def get_single_book(
     base_url = f"https://api.audible{audible_regions[audible_region]}/1.0/catalog/products/{asin}"
     params = {
         "asin": asin,
-        "response_groups": ["media"],
+        "response_groups": RESPONSE_GROUPS,
     }
 
     async with client_session.get(

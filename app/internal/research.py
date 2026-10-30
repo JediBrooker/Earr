@@ -14,6 +14,8 @@ Deliberately conservative, because it grabs without anyone watching:
   rather than searching forever
 - searches are forced past the source cache, since a cached result is exactly
   what made the previous attempt fail
+- books that are not out yet are left alone until their release day, when
+  they are searched for whether or not re-searching is turned on
 """
 
 from datetime import datetime, timedelta
@@ -22,6 +24,7 @@ import aiohttp
 from aiohttp import ClientSession
 from sqlmodel import Session, col, or_, select
 
+from app.internal.db_queries import get_book
 from app.internal.models import (
     Audiobook,
     AudiobookRequest,
@@ -36,6 +39,8 @@ from app.util.log import logger
 
 BATCH_SIZE = 5
 """How many books to search per run, to avoid hammering Prowlarr."""
+RELEASE_WINDOW_DAYS = 7
+"""How long after release day a pre-order still gets its release-day search."""
 
 
 def _due_before(interval_seconds: int) -> datetime:
@@ -56,6 +61,8 @@ def find_audiobooks_to_retry(
             .where(
                 col(Audiobook.downloaded).is_(False),
                 col(Audiobook.search_attempts) < max_attempts,
+                # nothing to find before it is out
+                col(Audiobook.release_date) <= datetime.now(),
                 or_(
                     col(Audiobook.last_searched_at).is_(None),
                     col(Audiobook.last_searched_at) < cutoff,
@@ -102,6 +109,99 @@ def find_manual_requests_to_retry(
             .limit(BATCH_SIZE)
         ).all()
     )
+
+
+def _trusted_or_approved():
+    trusted_usernames = select(User.username).where(
+        col(User.group).in_([GroupEnum.trusted, GroupEnum.admin])
+    )
+    return select(AudiobookRequest.asin).where(
+        or_(
+            col(AudiobookRequest.user_username).in_(trusted_usernames),
+            col(AudiobookRequest.approved),
+        )
+    )
+
+
+def find_newly_released(session: Session) -> list[Audiobook]:
+    """Pre-orders whose release day has come and that haven't been searched since."""
+    now = datetime.now()
+    books = session.exec(
+        select(Audiobook).where(
+            col(Audiobook.downloaded).is_(False),
+            col(Audiobook.download_status).is_(None),
+            col(Audiobook.release_date) <= now,
+            col(Audiobook.release_date) >= now - timedelta(days=RELEASE_WINDOW_DAYS),
+            col(Audiobook.asin).in_(_trusted_or_approved()),
+        )
+    ).all()
+    return [
+        b
+        for b in books
+        if b.last_searched_at is None or b.last_searched_at < b.release_date
+    ][:BATCH_SIZE]
+
+
+def may_download(book: Audiobook | ManualBookRequest) -> bool:
+    """Whether someone allowed to trigger downloads stands behind this request."""
+    if isinstance(book, ManualBookRequest):
+        return book.approved or bool(
+            book.user and book.user.is_above(GroupEnum.trusted)
+        )
+    return any(
+        request.approved or request.user.is_above(GroupEnum.trusted)
+        for request in book.requests
+    )
+
+
+async def search_again(
+    session: Session, client_session: ClientSession, identifiers: list[str]
+) -> int:
+    """Searches straight away for books whose download just failed.
+
+    The failed release is blocklisted by then, so this picks the next best one.
+    Returns how many downloads were started.
+    """
+    if not quality_config.get_auto_download(session):
+        return 0
+    max_attempts = quality_config.get_research_max_attempts(session)
+    started = 0
+    for identifier in identifiers:
+        book = get_book(session, identifier)
+        if book is None or book.downloaded or book.search_attempts >= max_attempts:
+            continue
+        if isinstance(book, Audiobook) and not book.is_released:
+            continue
+        if not may_download(book):
+            continue
+        if await retry_one(session, client_session, book, identifier):
+            started += 1
+    return started
+
+
+async def run_release_day(session: Session, client_session: ClientSession) -> int:
+    """Searches for pre-orders on the day they come out."""
+    if not quality_config.get_auto_download(session):
+        return 0
+    started = 0
+    for book in find_newly_released(session):
+        if await retry_one(session, client_session, book, book.asin):
+            started += 1
+    return started
+
+
+async def search_new_releases() -> None:
+    """Scheduled entry point. Never raises so the scheduler keeps running."""
+    try:
+        with next(get_session()) as session:
+            async with ClientSession(
+                timeout=aiohttp.ClientTimeout(total=120)
+            ) as client_session:
+                started = await run_release_day(session, client_session)
+        if started:
+            logger.info("Release day searches started downloads", count=started)
+    except Exception as e:
+        logger.error("Release day search failed", error=str(e))
 
 
 def record_attempt(session: Session, book: Audiobook | ManualBookRequest) -> None:

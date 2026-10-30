@@ -1,9 +1,11 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, Response, Security
+from pydantic import BaseModel
 from sqlmodel import Session
 
 from app.internal.auth.authentication import EarrAuth, DetailedUser
+from app.internal.language import LANGUAGES, language_config
 from app.internal.models import GroupEnum
 from app.internal.ranking.quality import IndexerFlag, QualityRange, quality_config
 from app.internal.research_scheduler import lifespan
@@ -15,6 +17,7 @@ from app.routers.api.settings.download import (
 )
 from app.util.db import get_session
 from app.util.templates import catalog_response, catalog_response_toast
+from app.util.toast import toast_response
 
 router = APIRouter(prefix="/download", lifespan=lifespan)
 
@@ -54,7 +57,34 @@ def read_download(
         name_ratio=name_ratio,
         title_ratio=title_ratio,
         indexer_flags=flags,
+        languages=_language_options(session),
     )
+
+
+class LanguageOption(BaseModel):
+    value: str
+    label: str
+    selected: bool
+
+
+def _language_options(session: Session) -> list[LanguageOption]:
+    preferred = set(language_config.get_preferred(session))
+    return [
+        LanguageOption(value=value, label=label, selected=value in preferred)
+        for value, label in LANGUAGES.items()
+    ]
+
+
+@router.post("/hx-languages")
+def update_languages(
+    session: Annotated[Session, Depends(get_session)],
+    _: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
+    languages: Annotated[list[str] | None, Form()] = None,
+):
+    if not languages:
+        return toast_response("Pick at least one language", "error")
+    language_config.set_preferred(session, languages)
+    return toast_response("Languages saved")
 
 
 @router.post("/hx-sliders")

@@ -2,8 +2,11 @@ from typing import Annotated, Literal, cast
 
 from aiohttp import ClientSession
 from fastapi import APIRouter, Depends, Form, HTTPException, Response, Security
+from pydantic import BaseModel
 from sqlmodel import Session
 
+from app.internal.audiobookshelf.config import abs_config
+from app.internal.auth.abs_login import abs_login_config
 from app.internal.auth.authentication import EarrAuth, DetailedUser
 from app.internal.auth.config import auth_config
 from app.internal.auth.login_types import LoginTypeEnum
@@ -23,9 +26,44 @@ from app.util.connection import get_connection
 from app.util.db import get_session
 from app.util.log import logger
 from app.util.templates import catalog_response, catalog_response_toast
-from app.util.toast import ToastException
+from app.util.toast import ToastException, toast_response
 
 router = APIRouter(prefix="/security")
+
+
+class AbsLoginSettings(BaseModel):
+    connected: bool
+    enabled: bool
+    group: str
+    admins_are_admins: bool
+
+
+def _abs_login_settings(session: Session) -> AbsLoginSettings:
+    return AbsLoginSettings(
+        connected=abs_config.is_connected(session),
+        enabled=abs_login_config.get_enabled(session),
+        group=abs_login_config.get_group(session).value,
+        admins_are_admins=abs_login_config.get_admins_are_admins(session),
+    )
+
+
+@router.post("/hx-abs-login")
+def update_abs_login(
+    session: Annotated[Session, Depends(get_session)],
+    _: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
+    enabled: Annotated[bool, Form()] = False,
+    group: Annotated[GroupEnum, Form()] = GroupEnum.untrusted,
+    admins: Annotated[bool, Form()] = False,
+):
+    if enabled and not abs_config.is_connected(session):
+        return toast_response("Connect Audiobookshelf first", "error")
+    abs_login_config.set_enabled(session, enabled)
+    abs_login_config.set_group(
+        session,
+        GroupEnum.trusted if group == GroupEnum.trusted else GroupEnum.untrusted,
+    )
+    abs_login_config.set_admins_are_admins(session, admins)
+    return toast_response("Audiobookshelf sign-in saved")
 
 
 @router.get("")
@@ -54,6 +92,7 @@ def read_security(
         oidc_redirect_scheme=oidc_config.get_redirect_scheme(session),
         oidc_logout_url=oidc_config.get(session, "oidc_logout_url", ""),
         force_login_type=force_login_type,
+        abs_login=_abs_login_settings(session),
     )
 
 

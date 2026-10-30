@@ -1,0 +1,200 @@
+{#def
+    user: DetailedUser,
+    page: BookPage,
+    auto_start_download: bool,
+    region: str,
+    allowance: Allowance | None = None,
+#}
+
+{% set book = page.book.book %}
+{% set series = page.series %}
+{% set download_status = book.download_status.value if book.download_status else None %}
+{% set missing = page.missing_in_series %}
+<BaseLayout title={{ book.title }} user={{ user }}>
+<div class="mx-auto flex w-full max-w-6xl flex-col gap-10 p-4 sm:p-6 lg:p-8">
+    <section class="flex flex-col gap-6 sm:flex-row">
+        <div class="aspect-square w-48 shrink-0 self-center overflow-hidden rounded-box bg-base-200 shadow-md sm:w-56 sm:self-start">
+            {% if book.cover_image %}
+                <img src="{{ book.cover_image }}" alt="" class="size-full object-cover" />
+            {% else %}
+                <div class="grid size-full place-items-center opacity-30">
+                    <icons.PhotoOff />
+                </div>
+            {% endif %}
+        </div>
+        <div class="flex min-w-0 flex-col gap-3">
+            <div>
+                {% if series %}
+                    <p class="text-sm font-semibold text-secondary">
+                        <a href="#series" class="hover:underline">
+                            {% if book.series_position %}Book {{ book.series_position }} of {% endif %}{{ series.title }}
+                        </a>
+                    </p>
+                {% endif %}
+                <h1 class="text-3xl font-bold tracking-tight">
+                    {{ book.title }}
+                </h1>
+                {% if book.subtitle %}
+                    <p class="text-base-content/70">
+                        {{ book.subtitle }}
+                    </p>
+                {% endif %}
+            </div>
+            <dl class="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
+                <dt class="text-base-content/60">
+                    By
+                </dt>
+                <dd>
+                    {% for author in book.authors %}
+                        <a class="link link-hover"
+                           href="{{ base_url }}/search?q={{ author | urlencode }}">{{ author }}</a>{{ ", " if not loop.last else "" }}
+                    {% endfor %}
+                </dd>
+                {% if book.narrators %}
+                    <dt class="text-base-content/60">
+                        Read by
+                    </dt>
+                    <dd>
+                        {{ book.narrators | join(", ") }}
+                    </dd>
+                {% endif %}
+                <dt class="text-base-content/60">
+                    {{ "Released" if book.is_released else "Comes out" }}
+                </dt>
+                <dd>
+                    {{ book.release_date.strftime("%-d %B %Y") }}
+                </dd>
+                {% if book.runtime_length_min %}
+                    <dt class="text-base-content/60">
+                        Length
+                    </dt>
+                    <dd>
+                        {{ book.runtime_length_min // 60 }}h {{ book.runtime_length_min % 60 }}m
+                    </dd>
+                {% endif %}
+                {% if page.language %}
+                    <dt class="text-base-content/60">
+                        Language
+                    </dt>
+                    <dd>
+                        {{ page.language }}{% if page.format_type %} · {{ page.format_type | capitalize }}{% endif %}
+                    </dd>
+                {% endif %}
+                {% if page.book.requests and user.is_admin() %}
+                    <dt class="text-base-content/60">
+                        Requested by
+                    </dt>
+                    <dd>
+                        {{ page.book.requests | map(attribute="user_username") | join(", ") }}
+                    </dd>
+                {% endif %}
+            </dl>
+            <div class="flex flex-wrap items-center gap-2">
+                {% if download_status == "grabbed" %}
+                    <span class="btn btn-sm btn-info pointer-events-none">Downloading</span>
+                {% else %}
+                    <Book.RequestButton book_with_requests={{ page.book }} user={{ user }} auto_start_download={{ auto_start_download }} />
+                {% endif %}
+                {% if page.author %}
+                    <FollowButton kind="author" audible_id={{ page.author.asin or page.author.name }} label={{ page.author.name }} follow={{ page.following_author }} />
+                {% endif %}
+                {% if series %}
+                    <FollowButton kind="series" audible_id={{ series.asin }} label={{ series.title }} follow={{ page.following_series }} />
+                {% endif %}
+                {% if user.is_admin() and page.book.requests %}
+                    <a preload
+                       class="btn btn-sm btn-ghost"
+                       href="{{ base_url }}/wishlist/sources/{{ book.asin }}">Sources</a>
+                {% endif %}
+                <a class="btn btn-sm btn-ghost"
+                   target="_blank"
+                   rel="noopener"
+                   href="https://audible{{ audible_regions[region] }}/pd/{{ book.asin }}?ipRedirectOverride=true">Audible</a>
+            </div>
+            {% if allowance and not book.downloaded and not page.book.already_requested %}
+                <p class="text-xs text-base-content/60">
+                    {{ allowance.remaining }} of {{ allowance.limit }} requests left {{ allowance.period_label }}.
+                </p>
+            {% endif %}
+            {% if page.description %}
+                <div class="book-description flex max-w-prose flex-col gap-2 text-sm leading-relaxed text-base-content/80">
+                    {% for paragraph in page.description.split("\n\n") %}
+                        <p>
+                            {{ paragraph }}
+                        </p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+    </section>
+
+    {% if series and page.series_books %}
+        <section id="series" class="flex flex-col gap-3">
+            <div class="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                    <h2 class="text-xl font-semibold">
+                        {{ series.title }}
+                    </h2>
+                    <p class="text-sm text-base-content/60">
+                        {{ page.series_books | length }} book{{ "" if page.series_books | length == 1 else "s" }} in reading order
+                    </p>
+                </div>
+                {% if missing %}
+                    <button class="btn btn-sm btn-primary"
+                            hx-post="{{ base_url }}/book/{{ book.asin }}/hx-request-series"
+                            hx-swap="none"
+                            hx-disabled-elt="this"
+                            hx-confirm="Request the {{ missing | length }} book{{ '' if missing | length == 1 else 's' }} in this series that nobody has asked for yet?"
+                            hx-on::after-request="if (event.detail.successful) setTimeout(() => location.reload(), 1200)">
+                        Request {{ missing | length }} missing
+                    </button>
+                {% endif %}
+            </div>
+            <ol class="flex flex-col divide-y divide-base-content/10 rounded-box border border-base-content/10">
+                {% for entry in page.series_books %}
+                    {% set item = entry.book.book %}
+                    {% set item_status = "In library" if item.downloaded else ("Downloading" if item.download_status and item.download_status.value == "grabbed" else ("Requested" if entry.book.requests else "")) %}
+                    <li class="series-entry flex items-center gap-3 p-3 {% if item.asin == book.asin %}bg-base-200/60{% endif %}">
+                        <span class="w-10 shrink-0 text-center text-sm font-semibold text-base-content/60">{{ entry.sequence or "·" }}</span>
+                        <a href="{{ base_url }}/book/{{ item.asin }}"
+                           class="size-12 shrink-0 overflow-hidden rounded-md bg-base-200">
+                            {% if item.cover_image %}
+                                <img src="{{ item.cover_image }}"
+                                     alt=""
+                                     loading="lazy"
+                                     class="size-full object-cover" />
+                            {% endif %}
+                        </a>
+                        <div class="min-w-0 flex-1">
+                            <a href="{{ base_url }}/book/{{ item.asin }}"
+                               class="font-semibold line-clamp-1 hover:underline">{{ item.title }}</a>
+                            <p class="text-xs text-base-content/60">
+                                {{ item.release_date.strftime("%-d %b %Y") }}
+                                {%- if item.runtime_length_min %} · {{ item.runtime_length_hrs }}h{% endif %}
+                            </p>
+                        </div>
+                        {% if item_status %}
+                            <span class="badge badge-sm {{ {'In library': 'badge-success', 'Downloading': 'badge-info', 'Requested': 'badge-neutral'}[item_status] }}">{{ item_status }}</span>
+                        {% elif not item.is_released %}
+                            <span class="badge badge-sm badge-warning">Coming</span>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ol>
+        </section>
+    {% endif %}
+
+    {% if page.author_books %}
+        <section class="flex flex-col gap-3">
+            <h2 class="text-xl font-semibold">
+                More by {{ page.author.name }}
+            </h2>
+            <div class="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-x-3 gap-y-6 sm:grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] sm:gap-x-4">
+                {% for item in page.author_books %}
+                    <BookCard book_with_requests={{ item }} auto_start_download={{ auto_start_download }} region={{ region }} user={{ user }} />
+                {% endfor %}
+            </div>
+        </section>
+    {% endif %}
+</div>
+</BaseLayout>

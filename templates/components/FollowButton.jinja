@@ -1,0 +1,36 @@
+{#def
+    kind: str,
+    audible_id: str,
+    label: str,
+    follow: Follow | None = None,
+    style: str = "button",
+#}
+
+<span class="follow-button inline-flex shrink-0 whitespace-nowrap">
+    {% if follow %}
+        <button class="group {% if style == 'badge' %}btn btn-xs{% else %}btn btn-sm{% endif %} btn-secondary"
+                hx-delete="{{ base_url }}/following/hx-follow/{{ follow.id }}?style={{ style }}"
+                hx-target="closest .follow-button"
+                hx-swap="outerHTML"
+                hx-disabled-elt="this"
+                title="Stop requesting new books from {{ label }}">
+            <span class="[&_svg]:size-4"><icons.Bookmark /></span>
+            <span class="group-hover:hidden">Following {{ "author" if kind == "author" else "series" }}</span>
+            <span class="hidden group-hover:inline">Unfollow</span>
+        </button>
+    {% else %}
+        <form hx-post="{{ base_url }}/following/hx-follow?style={{ style }}"
+              hx-target="closest .follow-button"
+              hx-swap="outerHTML"
+              hx-disabled-elt="find button">
+            <input type="hidden" name="kind" value="{{ kind }}" />
+            <input type="hidden" name="audible_id" value="{{ audible_id }}" />
+            <input type="hidden" name="name" value="{{ label }}" />
+            <button class="{% if style == 'badge' %}btn btn-xs{% else %}btn btn-sm{% endif %} btn-outline"
+                    title="Request new books from {{ label }} automatically">
+                <span class="[&_svg]:size-4"><icons.Bookmark /></span>
+                Follow {{ "author" if kind == "author" else "series" }}
+            </button>
+        </form>
+    {% endif %}
+</span>

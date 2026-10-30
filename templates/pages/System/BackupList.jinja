@@ -1,0 +1,67 @@
+{#def
+    files: list[BackupFile],
+#}
+
+<div id="backup-list">
+    {% if not files %}
+        <div class="rounded-box border border-dashed border-base-content/20 p-8 text-center text-sm text-base-content/60">
+            No backups yet.
+        </div>
+    {% else %}
+        <div class="overflow-x-auto rounded-box border border-base-content/10">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>
+                            Taken
+                        </th>
+                        <th>
+                            Kind
+                        </th>
+                        <th class="hidden sm:table-cell">
+                            Size
+                        </th>
+                        <th>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for b in files %}
+                        <tr class="backup-row">
+                            <td class="whitespace-nowrap">
+                                {{ b.created.strftime("%-d %b %Y, %H:%M") }}
+                            </td>
+                            <td>
+                                {{ b.kind_label }}
+                            </td>
+                            <td class="hidden sm:table-cell">
+                                {{ b.size_label }}
+                            </td>
+                            <td>
+                                <div class="flex justify-end gap-1">
+                                    <a class="btn btn-xs btn-ghost"
+                                       href="{{ base_url }}/system/backups/download/{{ b.name }}"
+                                       download>Download</a>
+                                    <button class="btn btn-xs btn-ghost"
+                                            hx-post="{{ base_url }}/system/backups/hx-restore/{{ b.name }}"
+                                            hx-swap="none"
+                                            hx-disabled-elt="this"
+                                            hx-confirm="Replace everything in Earr with the backup from {{ b.created.strftime("%-d %b %Y, %H:%M") }}? A backup of the current state is taken first.">
+                                        Restore
+                                    </button>
+                                    <button class="btn btn-xs btn-ghost text-error"
+                                            hx-delete="{{ base_url }}/system/backups/hx/{{ b.name }}"
+                                            hx-target="#backup-list"
+                                            hx-swap="outerHTML"
+                                            hx-confirm="Delete this backup?">
+                                        Delete
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>

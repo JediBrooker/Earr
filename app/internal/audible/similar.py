@@ -8,6 +8,7 @@ from app.internal.audible.search import CacheResult, search_audible_books
 from app.internal.audible.single import get_single_book
 from app.internal.audible.types import (
     REFETCH_TTL,
+    RESPONSE_GROUPS,
     AudibleSimilarResponse,
     audible_region_type,
     audible_regions,
@@ -54,7 +55,7 @@ async def list_similar_audible_books(
     base_url = f"https://api.audible{audible_regions[audible_region]}/1.0/catalog/products/{asin}/sims"
     params = {
         "num_results": min(10, max(1, num_results)),  # audible limits to max 10
-        "response_groups": ["media"],
+        "response_groups": RESPONSE_GROUPS,
     }
 
     ordered: list[Audiobook] = []

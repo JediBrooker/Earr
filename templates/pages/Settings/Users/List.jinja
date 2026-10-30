@@ -29,6 +29,9 @@
                         Group
                     </th>
                     <th>
+                        Request limit
+                    </th>
+                    <th>
                         Extra Data
                     </th>
                     <th>
@@ -44,6 +47,10 @@
                         </th>
                         <td>
                             {{ u.username }}
+                            {% if u.abs_user_id %}
+                                <span class="badge badge-xs badge-ghost"
+                                      title="Signs in with their Audiobookshelf account">Audiobookshelf</span>
+                            {% endif %}
                         </td>
                         <td>
                             <select id="select-group"
@@ -74,6 +81,22 @@
                                     </option>
                                 {% endif %}
                             </select>
+                        </td>
+                        <td>
+                            {% if u.group.value == "admin" %}
+                                <span class="text-sm opacity-60">None</span>
+                            {% else %}
+                                <input type="number"
+                                       min="0"
+                                       class="input w-24"
+                                       name="request_limit"
+                                       value="{{ u.request_limit if u.request_limit is not none else '' }}"
+                                       placeholder="Group"
+                                       title="Requests allowed per period. Empty uses the group's limit, 0 means unlimited."
+                                       hx-patch="{{ base_url }}/settings/users/hx-limit/{{ u.username }}"
+                                       hx-trigger="change delay:500ms"
+                                       hx-swap="none" />
+                            {% endif %}
                         </td>
                         <td>
                             <input type="text"

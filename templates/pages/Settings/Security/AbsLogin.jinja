@@ -1,0 +1,58 @@
+{#def
+    settings: AbsLoginSettings,
+#}
+
+<form class="flex flex-col gap-3"
+      hx-post="{{ base_url }}/settings/security/hx-abs-login"
+      hx-swap="none">
+    <div>
+        <h2 class="text-lg">
+            Sign in with Audiobookshelf
+        </h2>
+        <p class="text-xs opacity-60">
+            Lets anyone with an Audiobookshelf account sign in with that username and password, with
+            no separate Earr account to create. Their first sign-in creates one. Works with Forms
+            Login and Basic Auth.
+        </p>
+    </div>
+    {% if not settings.connected %}
+        <div role="alert" class="alert">
+            <span>Connect Audiobookshelf first, under <a class="link" href="{{ base_url }}/settings/audiobookshelf">Settings, Audiobookshelf</a>.</span>
+        </div>
+    {% endif %}
+    <label class="flex items-center justify-between gap-2">
+        Allow Audiobookshelf accounts
+        <input type="checkbox"
+               name="enabled"
+               class="toggle toggle-primary"
+               {% if settings.enabled %}checked{% endif %}
+               {% if not settings.connected %}disabled{% endif %} />
+    </label>
+    <label class="flex flex-col gap-1">
+        <span>New accounts join</span>
+        <select name="group" class="select w-full">
+            <option value="untrusted"
+                    {% if settings.group == "untrusted" %}selected{% endif %}>
+                Untrusted: requests wait for approval
+            </option>
+            <option value="trusted"
+                    {% if settings.group == "trusted" %}selected{% endif %}>
+                Trusted: requests download straight away
+            </option>
+        </select>
+    </label>
+    <label class="flex items-center justify-between gap-2">
+        Audiobookshelf admins become Earr admins
+        <input type="checkbox"
+               name="admins"
+               class="checkbox"
+               {% if settings.admins_are_admins %}checked{% endif %} />
+    </label>
+    <p class="text-xs opacity-60">
+        Change someone's group later under Users. Accounts that only exist in Earr keep signing in as
+        before, and are never checked against Audiobookshelf.
+    </p>
+    <button class="btn btn-primary w-fit">
+        Save
+    </button>
+</form>

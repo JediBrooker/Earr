@@ -7,12 +7,18 @@ from fastapi import (
     Depends,
     Form,
     HTTPException,
+    Request,
     Security,
 )
 from sqlmodel import Session, col, desc, select
 
 from app.internal.auth.authentication import EarrAuth, DetailedUser
-from app.internal.download_clients.config import list_categories
+from app.internal.download_clients.config import (
+    TORRENT_CLIENTS,
+    USENET_CLIENTS,
+    ClientId,
+    list_categories,
+)
 from app.internal.library.config import library_config
 from app.internal.library.naming import (
     TEMPLATE_EXAMPLES,
@@ -25,6 +31,7 @@ from app.internal.library.scheduler import lifespan
 from app.internal.models import GroupEnum, LibraryImport, OrganizeModeEnum
 from app.routers.api.library import scan_now as api_scan_now
 from app.routers.api.settings.library import (
+    ClientUpdate,
     UpdateDownloadClients,
     UpdateLibrarySettings,
     read_settings,
@@ -66,9 +73,10 @@ async def read_library(
 ):
     settings = read_settings(session)
     # populated from the clients so the category can be picked rather than typed
-    qbit_cats, sab_cats = await list_categories(session, client_session)
-    settings.download_clients.qbit_categories = qbit_cats
-    settings.download_clients.sab_categories = sab_cats
+    for client_id, categories in (
+        await list_categories(session, client_session)
+    ).items():
+        settings.download_clients.get(client_id).categories = categories
     return catalog_response(
         "Settings.Library.Index",
         user=admin_user,
@@ -163,34 +171,32 @@ async def scan_now(
 
 
 @router.put("/hx-download-clients")
-def update_download_clients(
+async def update_download_clients(
+    request: Request,
     session: Annotated[Session, Depends(get_session)],
     admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
-    # every field defaults: a browser omits empty inputs, and an empty secret
-    # means "keep the stored one" rather than "this is missing"
-    qbit_url: Annotated[str, Form()] = "",
-    qbit_username: Annotated[str, Form()] = "",
-    qbit_password: Annotated[str, Form()] = "",
-    qbit_category: Annotated[str, Form()] = "",
-    sab_url: Annotated[str, Form()] = "",
-    sab_api_key: Annotated[str, Form()] = "",
-    sab_category: Annotated[str, Form()] = "",
-    qbit_enabled: Annotated[bool, Form()] = False,
-    sab_enabled: Annotated[bool, Form()] = False,
 ):
+    # fields are named "<client>_<field>". A browser leaves out unticked boxes
+    # and empty inputs, and an empty secret means "keep the stored one"
+    form = await request.form()
+
+    def field(client_id: ClientId, name: str) -> str:
+        value = form.get(f"{client_id}_{name}")
+        return value if isinstance(value, str) else ""
+
     try:
         api_update_download_clients(
             UpdateDownloadClients(
-                qbit_enabled=qbit_enabled,
-                qbit_url=qbit_url,
-                qbit_username=qbit_username,
-                # an empty box means "leave the stored secret alone"
-                qbit_password=qbit_password or None,
-                qbit_category=qbit_category,
-                sab_enabled=sab_enabled,
-                sab_url=sab_url,
-                sab_api_key=sab_api_key or None,
-                sab_category=sab_category,
+                clients={
+                    client_id: ClientUpdate(
+                        enabled=field(client_id, "enabled") in ("on", "true", "1"),
+                        url=field(client_id, "url"),
+                        username=field(client_id, "username"),
+                        secret=field(client_id, "secret") or None,
+                        category=field(client_id, "category"),
+                    )
+                    for client_id in (*TORRENT_CLIENTS, *USENET_CLIENTS)
+                }
             ),
             session,
             admin_user,

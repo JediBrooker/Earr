@@ -1,12 +1,14 @@
 """Downloads on their way to the library, their history, and importing by hand."""
 
+import uuid
 from typing import Annotated
 
 from aiohttp import ClientSession
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Security
 from sqlmodel import Session
 
-from app.internal.activity import history, queue
+from app.internal import blocklist as blocklist_store
+from app.internal.activity import history, queue, remove_download
 from app.internal.auth.authentication import DetailedUser, EarrAuth
 from app.internal.library.config import library_config
 from app.internal.library.manual_import import (
@@ -20,6 +22,7 @@ from app.routers.api.library import ImportBody, import_download
 from app.util.connection import get_connection
 from app.util.db import get_session
 from app.util.templates import catalog_response, catalog_response_toast
+from app.util.toast import toast_response
 
 router = APIRouter(prefix="/activity")
 
@@ -44,6 +47,41 @@ async def queue_rows(
         items=await queue(session, client_session, user),
         organizing=library_config.get_enabled(session),
     )
+
+
+@router.post("/{import_id}/hx-remove")
+async def remove(
+    import_id: uuid.UUID,
+    session: Annotated[Session, Depends(get_session)],
+    client_session: Annotated[ClientSession, Depends(get_connection)],
+    _: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
+    blocklist: bool = False,
+):
+    message = await remove_download(
+        session, client_session, import_id, blocklist=blocklist
+    )
+    return toast_response(message)
+
+
+@router.get("/blocklist")
+def blocklist_page(
+    session: Annotated[Session, Depends(get_session)],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
+):
+    return catalog_response(
+        "Activity.Blocklist", user=admin_user, entries=blocklist_store.entries(session)
+    )
+
+
+@router.delete("/blocklist/{entry_id}")
+def unblock(
+    entry_id: uuid.UUID,
+    session: Annotated[Session, Depends(get_session)],
+    _: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
+):
+    if not blocklist_store.remove(session, entry_id):
+        raise HTTPException(status_code=404, detail="Not on the blocklist")
+    return toast_response("Removed from the blocklist")
 
 
 @router.get("/history")

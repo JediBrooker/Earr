@@ -5,7 +5,6 @@ from math import inf
 from typing import Annotated, final
 
 import pydantic
-from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.openapi.models import SecurityBase as SecurityBaseModel
@@ -18,14 +17,17 @@ from fastapi.security import (
 from fastapi.security.base import SecurityBase
 from sqlmodel import Session, select
 
+from app.internal.auth.abs_login import authenticate
 from app.internal.auth.config import auth_config
+from app.internal.auth.passwords import authenticate_user as authenticate_user
+from app.internal.auth.passwords import create_user as create_user
+from app.internal.auth.passwords import is_correct_password as is_correct_password
+from app.internal.auth.passwords import ph
 from app.internal.auth.login_types import LoginTypeEnum
 from app.internal.models import APIKey, GroupEnum, User
 from app.util.censor import censor
 from app.util.db import get_session
 from app.util.log import logger
-
-ph = PasswordHasher()
 
 
 class DetailedUser(User):
@@ -58,48 +60,6 @@ def raise_for_invalid_password(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Password must be at least {min_password_length} characters long",
         )
-
-
-def is_correct_password(user: User, password: str) -> bool:
-    try:
-        return ph.verify(user.password, password)
-    except VerifyMismatchError:
-        return False
-
-
-def authenticate_user(session: Session, username: str, password: str) -> User | None:
-    user = session.get(User, username)
-    if not user:
-        return None
-
-    try:
-        ph.verify(user.password, password)
-    except VerifyMismatchError:
-        return None
-
-    if ph.check_needs_rehash(user.password):
-        user.password = ph.hash(password)
-        session.add(user)
-        session.commit()
-
-    return user
-
-
-def create_user(
-    username: str,
-    password: str,
-    group: GroupEnum = GroupEnum.untrusted,
-    root: bool = False,
-    extra_data: str | None = None,
-) -> User:
-    password_hash = ph.hash(password)
-    return User(
-        username=username,
-        password=password_hash,
-        group=group,
-        root=root,
-        extra_data=extra_data,
-    )
 
 
 def generate_api_key() -> str:
@@ -279,7 +239,9 @@ class EarrAuth(SecurityBase):
             logger.debug("No credentials provided")
             raise invalid_exception
 
-        user = authenticate_user(session, credentials.username, credentials.password)
+        user = await authenticate(  # local accounts, or Audiobookshelf ones
+            session, credentials.username, credentials.password, recheck=False
+        )
         if not user:
             logger.debug(
                 "Invalid username or password", username=censor(credentials.username)
