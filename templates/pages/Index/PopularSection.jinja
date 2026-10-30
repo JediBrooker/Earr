@@ -2,11 +2,13 @@
     title: str,
     user: DetailedUser,
     region: audible_region_type,
+    reasons: list = [], # anything with a `book` and a `reason`
     view_more: str | None = None,
     lazy_url: str | None = None,
     description: str | None = None,
     empty: str | None = None,
     auto_start_download: bool = False,
+    auto_download: bool = False, # the name the /hx-* routes pass it under
 #}
 
 {% if lazy_url %}
@@ -44,15 +46,22 @@
             {% endif %}
         </div>
         <div class="overflow-x-auto">
-            <div id="for-you" class="w-full max-w-7xl mb-8">
-                {% if empty %}
-                    <div class="p-6 bg-base-200 rounded-md text-center">
-                        <p class="text-sm opacity-70">
-                            {{ empty }}
-                        </p>
-                    </div>
-                {% endif %}
-            </div>
+            {% if reasons %}
+                <div class="flex gap-4 pb-4" style="width: max-content">
+                    {% for item in reasons[:12] %}
+                        <div class="flex-none w-32 sm:w-40"
+                             {% if item.reason %}title="{{ item.reason }}"{% endif %}>
+                            <BookCard book_with_requests={{ item.book }} auto_start_download={{ auto_download or auto_start_download }} region={{ region }} user={{ user }} />
+                        </div>
+                    {% endfor %}
+                </div>
+            {% elif empty %}
+                <div class="p-6 bg-base-200 rounded-md text-center">
+                    <p class="text-sm opacity-70">
+                        {{ empty }}
+                    </p>
+                </div>
+            {% endif %}
         </div>
     </div>
 {% endif %}
