@@ -23,6 +23,12 @@
            href="{{ base_url }}/activity/history"
            role="tab"
            class="tab {% if page == 'history' %}tab-active{% endif %}">History</a>
+        {% if user.is_admin() %}
+            <a preload
+               href="{{ base_url }}/activity/import"
+               role="tab"
+               class="tab {% if page == 'import' %}tab-active{% endif %}">Manual import</a>
+        {% endif %}
     </div>
 
     {{ content }}

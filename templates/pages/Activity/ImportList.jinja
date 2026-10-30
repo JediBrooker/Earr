@@ -1,0 +1,58 @@
+{#def
+    targets: list[ImportTarget],
+    candidates: list[ImportCandidate],
+#}
+
+<div id="import-list" class="flex flex-col gap-3">
+    {% if not candidates %}
+        <div class="rounded-box border border-dashed border-base-content/20 p-10 text-center">
+            <p class="font-medium">
+                Nothing to import
+            </p>
+            <p class="text-sm text-base-content/60">
+                Every download in the completed downloads folders has already been imported.
+            </p>
+        </div>
+    {% endif %}
+    {% for candidate in candidates %}
+        <form class="import-candidate flex flex-col gap-3 rounded-box border border-base-content/10 p-4 lg:flex-row lg:items-center"
+              hx-post="{{ base_url }}/activity/import"
+              hx-target="#import-list"
+              hx-swap="outerHTML"
+              hx-disabled-elt="find button">
+            <input type="hidden" name="source_path" value="{{ candidate.path }}" />
+            <div class="min-w-0 flex-1">
+                <p class="font-mono text-sm break-all">
+                    {{ candidate.name }}
+                </p>
+                <p class="text-xs text-base-content/60">
+                    {{ candidate.files }} file{{ "" if candidate.files == 1 else "s" }} · {{ candidate.size_label }}
+                    · {{ candidate.modified.strftime("%d %b %Y, %H:%M") }} · in {{ candidate.folder }}
+                </p>
+                {% if candidate.incomplete %}
+                    <span class="badge badge-sm badge-warning mt-1">Still downloading</span>
+                {% endif %}
+            </div>
+            <select name="asin_or_uuid"
+                    class="select select-sm w-full lg:w-96"
+                    aria-label="Request this download belongs to"
+                    required>
+                <option value=""
+                        disabled
+                        {% if not candidate.suggestion %}selected{% endif %}>
+                    Choose the request
+                </option>
+                {% for target in targets %}
+                    <option value="{{ target.asin_or_uuid }}"
+                            {% if target.asin_or_uuid == candidate.suggestion %}selected{% endif %}>
+                        {{ target.label }}
+                    </option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-sm btn-primary"
+                    {% if candidate.incomplete or not targets %}disabled{% endif %}>
+                Import
+            </button>
+        </form>
+    {% endfor %}
+</div>

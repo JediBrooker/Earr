@@ -13,11 +13,18 @@ from app.internal.download_clients.config import download_client_config
 from app.internal.library.config import LibraryMisconfigured, library_config
 from app.internal.library.metadata import write_metadata
 from app.internal.library.organizer import OrganizeError, organize, resolve_target_dir
-from app.internal.library.watcher import get_book, scan
+from app.internal.library.watcher import get_book, scan, set_download_status
 from app.internal.models import (
+    DownloadStatusEnum,
+    EventEnum,
     GroupEnum,
     LibraryImport,
     LibraryImportStatusEnum,
+    ManualBookRequest,
+)
+from app.internal.notifications import (
+    send_all_manual_notifications,
+    send_all_notifications,
 )
 from app.util.connection import get_connection
 from app.util.db import get_session
@@ -153,6 +160,24 @@ def import_download(
     entry.error = None
     session.add(entry)
     session.commit()
+
+    # finish the way the watcher does once it has placed a download
+    set_download_status(session, book, DownloadStatusEnum.downloaded)
+    replacements = {"targetPath": str(target_dir)}
+    if isinstance(book, ManualBookRequest):
+        background_task.add_task(
+            send_all_manual_notifications,
+            EventEnum.on_successful_download,
+            ManualBookRequest.model_validate(book),
+            replacements,
+        )
+    else:
+        background_task.add_task(
+            send_all_notifications,
+            EventEnum.on_successful_download,
+            body.asin_or_uuid,
+            replacements,
+        )
 
     if abs_config.is_valid(session):
         background_task.add_task(background_abs_trigger_scan)
