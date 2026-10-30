@@ -1,0 +1,27 @@
+{#def
+    user: DetailedUser,
+    has_download_dirs: bool,
+    root_dir: str | None,
+    targets: list[ImportTarget],
+    candidates: list[ImportCandidate],
+#}
+
+<ActivityLayout user={{ user }} page="import" title="Activity - Manual import">
+<p class="max-w-prose text-sm text-base-content/70">
+    Downloads Earr couldn't match to a request by itself, usually because the download client renamed the
+    folder. Pick the request each one belongs to and Earr files it into the library like any other.
+</p>
+{% if not has_download_dirs %}
+    <div role="alert" class="alert">
+        <span>Set a completed downloads folder in
+            <a preload class="link" href="{{ base_url }}/settings/library">Settings, Library</a> to import from it.</span>
+    </div>
+{% elif not root_dir %}
+    <div role="alert" class="alert">
+        <span>Set a library folder in
+            <a preload class="link" href="{{ base_url }}/settings/library">Settings, Library</a> so imports have somewhere to go.</span>
+    </div>
+{% else %}
+    <Activity.ImportList targets={{ targets }} candidates={{ candidates }} />
+{% endif %}
+</ActivityLayout>

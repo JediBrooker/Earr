@@ -62,7 +62,11 @@ def find_audiobooks_to_retry(
                 ),
                 col(Audiobook.asin).in_(
                     select(AudiobookRequest.asin).where(
-                        col(AudiobookRequest.user_username).in_(trusted_usernames)
+                        or_(
+                            col(AudiobookRequest.user_username).in_(trusted_usernames),
+                            # an admin approved it, which is as good as trusted
+                            col(AudiobookRequest.approved),
+                        )
                     )
                 ),
             )
@@ -89,7 +93,10 @@ def find_manual_requests_to_retry(
                     col(ManualBookRequest.last_searched_at).is_(None),
                     col(ManualBookRequest.last_searched_at) < cutoff,
                 ),
-                col(ManualBookRequest.user_username).in_(trusted_usernames),
+                or_(
+                    col(ManualBookRequest.user_username).in_(trusted_usernames),
+                    col(ManualBookRequest.approved),
+                ),
             )
             .order_by(col(ManualBookRequest.search_attempts))
             .limit(BATCH_SIZE)

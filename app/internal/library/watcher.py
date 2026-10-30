@@ -7,7 +7,6 @@ name that directory after the release, which is what was grabbed.
 """
 
 import time
-import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -15,8 +14,7 @@ from rapidfuzz import fuzz, utils
 from aiohttp import ClientSession
 from sqlmodel import Session, col, desc, select
 
-from app.internal.audiobookshelf.client import background_abs_trigger_scan
-from app.internal.audiobookshelf.config import abs_config
+from app.internal.audiobookshelf.handoff import add_to_audiobookshelf
 from app.internal.download_clients.abstract import DownloadState
 from app.internal.download_clients.config import download_client_config
 from app.internal.library.config import DEFAULT_PENDING_TTL_DAYS, library_config
@@ -39,23 +37,17 @@ from app.internal.notifications import (
     send_all_manual_notifications,
     send_all_notifications,
 )
+from app.internal.db_queries import get_book
 from app.util.db import get_session
 from app.util.log import logger
+
+__all__ = ["get_book"]  # still imported from here by older callers
 
 STABLE_AFTER_SECONDS = 60
 """How long a download has to stop changing before it is considered finished."""
 
 _seen_sizes: dict[str, tuple[int, float]] = {}
 """Path to (total size, first time that size was observed)."""
-
-
-def get_book(
-    session: Session, asin_or_uuid: str
-) -> Audiobook | ManualBookRequest | None:
-    try:
-        return session.get(ManualBookRequest, uuid.UUID(asin_or_uuid))
-    except ValueError:
-        return session.get(Audiobook, asin_or_uuid)
 
 
 def _total_size(path: Path) -> int:
@@ -384,23 +376,27 @@ async def scan_downloads() -> None:
         with next(get_session()) as session:
             async with ClientSession() as client_session:
                 imported = await scan(session, client_session)
-            if not imported:
-                return
-            logger.info("Library: organized downloads", count=imported)
-            trigger_abs = abs_config.is_valid(session)
-            just_imported = list(
-                session.exec(
-                    select(LibraryImport)
-                    .where(LibraryImport.status == LibraryImportStatusEnum.imported)
-                    .order_by(desc(col(LibraryImport.updated_at)))
-                    .limit(imported)
-                ).all()
-            )
-            await notify_imported(session, just_imported)
+                if not imported:
+                    return
+                logger.info("Library: organized downloads", count=imported)
+                just_imported = list(
+                    session.exec(
+                        select(LibraryImport)
+                        .where(LibraryImport.status == LibraryImportStatusEnum.imported)
+                        .order_by(desc(col(LibraryImport.updated_at)))
+                        .limit(imported)
+                    ).all()
+                )
+                await notify_imported(session, just_imported)
+                # let Audiobookshelf pick up the new books right away
+                await add_to_audiobookshelf(
+                    session,
+                    client_session,
+                    [
+                        (Path(entry.target_path), get_book(session, entry.asin_or_uuid))
+                        for entry in just_imported
+                        if entry.target_path
+                    ],
+                )
     except Exception as e:
         logger.error("Library: scan failed", error=str(e))
-        return
-
-    if trigger_abs:
-        # let Audiobookshelf pick up the new files right away
-        await background_abs_trigger_scan()

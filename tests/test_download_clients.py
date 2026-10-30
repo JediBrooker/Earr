@@ -18,27 +18,6 @@ from app.internal.download_clients.sabnzbd import SabnzbdClient
 HASH = "abc123def456abc123def456abc123def456abcd"
 
 
-@pytest.fixture
-async def serve() -> Any:
-    """Starts a throwaway aiohttp server and returns its base url."""
-    servers: list[Any] = []
-
-    async def _start(routes: list[Any]) -> str:
-        app = web.Application()
-        app.add_routes(routes)
-        runner = web.AppRunner(app)
-        await runner.setup()
-        site = web.TCPSite(runner, "127.0.0.1", 0)
-        await site.start()
-        servers.append(runner)
-        port = runner.addresses[0][1]
-        return f"http://127.0.0.1:{port}"
-
-    yield _start
-    for runner in servers:
-        await runner.cleanup()
-
-
 CATEGORY_CALLS: list[dict[str, str]] = []
 
 
@@ -149,6 +128,52 @@ class TestQBittorrent:
 
         assert ok is False
         assert message
+
+
+class TestProgressDetails:
+    """What the Activity page shows for a download in flight."""
+
+    async def test_qbittorrent_reports_size_speed_and_time_left(self, serve: Any):
+        url = await serve(
+            qbit_routes([{
+                "hash": HASH, "name": "x", "state": "downloading", "progress": 0.4,
+                "size": 600_000_000, "dlspeed": 2_500_000, "eta": 140,
+                "content_path": "/data/x",
+            }])
+        )
+
+        async with ClientSession() as cs:
+            info = await QBittorrentClient(url).find(cs, client_id=HASH)
+
+        assert info is not None
+        assert (info.size, info.speed, info.eta) == (600_000_000, 2_500_000, 140)
+        assert info.status == "downloading"
+
+    async def test_qbittorrent_without_an_estimate_has_no_time_left(self, serve: Any):
+        url = await serve(
+            qbit_routes([{
+                "hash": HASH, "name": "x", "state": "stalledDL", "progress": 0.1,
+                "eta": 8640000, "content_path": "/data/x",
+            }])
+        )
+
+        async with ClientSession() as cs:
+            info = await QBittorrentClient(url).find(cs, client_id=HASH)
+
+        assert info is not None
+        assert info.eta is None
+        assert info.status == "stalled, no peers sending"
+
+    def test_sabnzbd_queue_slots_carry_size_and_time_left(self):
+        info = SabnzbdClient("http://sab", "key")._from_queue({  # pyright: ignore[reportPrivateUsage]
+            "filename": "Silverthorn", "percentage": "25", "mb": "512.0",
+            "timeleft": "1:02:03", "status": "Downloading",
+        })
+
+        assert info.progress == 0.25
+        assert info.size == 512 * 1024 * 1024
+        assert info.eta == 3723
+        assert info.status == "downloading"
 
 
 class TestCategoryListing:

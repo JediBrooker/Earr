@@ -7,6 +7,11 @@
 
 {% set book = book_with_requests.book %}
 {% set already_requested = book_with_requests.already_requested %}
+{% set series_label = (book.series or "") ~ (" #" ~ book.series_position if book.series and book.series_position else "") %}
+{# where the book stands, so nobody asks for something that is already on its way #}
+{% set download_status = book.download_status.value if book.download_status else None %}
+{% set status_label = "Downloading" if download_status == "grabbed" else ("In library" if book.downloaded else ("Requested" if book_with_requests.requests else "")) %}
+{% set status_class = {"Downloading": "badge-info", "In library": "badge-success", "Requested": "badge-neutral"}.get(status_label, "") %}
 
 <div class="book-card flex flex-col">
     <div class="relative w-32 h-32 sm:w-40 sm:h-40 rounded-md overflow-hidden shadow shadow-black items-center justify-center flex">
@@ -29,8 +34,11 @@
         {% else %}
             <icons.PhotoOff />
         {% endif %}
+        {% if status_label %}
+            <span class="book-status badge badge-sm {{ status_class }} pointer-events-none absolute bottom-1 left-1 shadow-sm">{{ status_label }}</span>
+        {% endif %}
         <!-- Request Button -->
-        <button class="absolute top-0 right-0 rounded-none rounded-bl-md btn-sm btn btn-square items-center justify-center flex {% if book.downloaded or already_requested %}btn-ghost bg-success text-neutral/20{% else %}btn-info{% endif %}"
+        <button class="absolute top-0 right-0 rounded-none rounded-bl-md btn-sm btn btn-square items-center justify-center flex {% if book.downloaded or already_requested %}btn-ghost bg-success text-neutral/20{% else %}btn-primary{% endif %}"
                 hx-post="{{ base_url }}/request/hx-add/{{ book.asin }}"
                 hx-vals='{"region": "{{ region }}"}'
                 hx-disabled-elt="this"
@@ -69,7 +77,15 @@
             {{ book.title }}
         </div>
     {% endif %}
-    {% if book.subtitle %}
+    {% if book.series %}
+        <div class="text-xs font-semibold text-secondary line-clamp-1"
+             title="{{ series_label }}">
+            {{ series_label }}
+        </div>
+    {% endif %}
+    {# Audible subtitles are often just "<series>, Book 1" or the series name alone, which the series line already says #}
+    {% set repeats_series = book.series and book.subtitle and (book.series | lower in book.subtitle | lower or book.subtitle | lower in book.series | lower) %}
+    {% if book.subtitle and not repeats_series %}
         <div class="opacity-60 font-semibold text-xs line-clamp-1"
              title="{{ book.subtitle }}">
             {{ book.subtitle }}
@@ -78,7 +94,7 @@
     <div class="text-xs font-semibold line-clamp-1"
          title="Authors: {{ book.authors | join(", ") }}">
         {% for author in book.authors[:2] %}
-            <a href="{{ base_url }}/search?q={{ author }}"
+            <a href="{{ base_url }}/search?q={{ author | urlencode }}"
                title="Search for {{ author }}"
                class="hover:underline">
                 {{ author }}
@@ -88,10 +104,25 @@
             <span class="opacity-60">+{{ book.authors | length - 2 }} more</span>
         {% endif %}
     </div>
-    <!-- Runtime -->
-    {% if book.runtime_length_hrs %}
-        <div class="text-xs opacity-60 mt-1">
-            {{ book.runtime_length_hrs }}h
+    {% if book.narrators %}
+        <div class="text-xs line-clamp-1"
+             title="Narrators: {{ book.narrators | join(", ") }}">
+            <span class="opacity-60">Read by</span>
+            {% for narrator in book.narrators[:2] %}
+                <a href="{{ base_url }}/search?q={{ narrator | urlencode }}"
+                   title="Search for {{ narrator }}"
+                   class="hover:underline">
+                    {{ narrator }}
+                {{- "," if loop.index < book.narrators | length and loop.index < 2 else "" -}}</a>
+            {% endfor %}
+            {% if book.narrators | length > 2 %}
+                <span class="opacity-60">+{{ book.narrators | length - 2 }} more</span>
+            {% endif %}
         </div>
     {% endif %}
+    <!-- Release year and runtime -->
+    <div class="text-xs opacity-60 mt-1">
+        {{ book.release_date.year }}
+        {%- if book.runtime_length_min %} · {{ book.runtime_length_hrs }}h{% endif %}
+    </div>
 </div>

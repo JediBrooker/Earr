@@ -5,7 +5,7 @@
 #}
 
 <!DOCTYPE html>
-<html lang="en" data-theme="garden">
+<html lang="en" data-theme="earr-light">
     <head>
         <meta charset="UTF-8" />
 
@@ -22,38 +22,32 @@
         <script src="{{ base_url }}/static/htmx.js?v={{ version }}"></script>
         <script defer src="{{ base_url }}/static/htmx-preload.js?v={{ version }}"></script>
         <script>
+            // earlier versions stored the names of the stock DaisyUI themes they used
+            const legacyThemes = {
+                nord: "earr-light",
+                night: "earr-dark",
+            };
             const setTheme = theme => {
                 if (!theme) {
                     theme = localStorage.getItem("theme");
-                    if (!theme) {
+                    theme = legacyThemes[theme] || theme;
+                    if (theme !== "earr-light" && theme !== "earr-dark") {
                         theme = window.matchMedia("(prefers-color-scheme: dark)").matches ?
-                            "night" :
-                            "nord";
+                            "earr-dark" :
+                            "earr-light";
                     }
                 }
+                const dark = theme === "earr-dark";
                 document.documentElement.setAttribute("data-theme", theme);
+                document.documentElement.classList.toggle("dark", dark);
                 localStorage.setItem("theme", theme);
-                if (theme === "night") {
-                    for (const elem of document.getElementsByClassName(
-                            "light-dark-toggle",
-                        )) {
-                        elem.classList.add("DARKCLASS");
-                        document.documentElement.classList.add("dark");
-                    }
-                } else {
-                    for (const elem of document.getElementsByClassName(
-                            "light-dark-toggle",
-                        )) {
-                        elem.classList.remove("DARKCLASS");
-                        document.documentElement.classList.remove("dark");
-                    }
+                for (const elem of document.getElementsByClassName("light-dark-toggle")) {
+                    elem.classList.toggle("DARKCLASS", dark);
                 }
             };
             const toggleTheme = () => {
                 const theme = document.documentElement.getAttribute("data-theme");
-
-                const newTheme = theme === "nord" ? "night" : "nord";
-                setTheme(newTheme);
+                setTheme(theme === "earr-dark" ? "earr-light" : "earr-dark");
             };
         </script>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -78,80 +72,221 @@
         <js.Toast />
 
     </head>
-    <body class="w-screen min-h-screen overflow-x-hidden" hx-ext="preload">
+    <body class="min-h-screen bg-base-100 text-base-content" hx-ext="preload">
 
         <ToastBlock init />
 
         <script>
-            // execute the script once here (to have it run on all pages), and once when the button loads below in the navbar
+            // runs before anything is drawn, so the page never flashes the wrong theme
             setTheme();
         </script>
-        {% if not hide_navbar %}
-            <header class="shadow-lg">
-                <nav class="navbar">
-                    <div class="flex-1">
+        {% if hide_navbar %}
+            {{ content }}
+        {% else %}
+            <div class="drawer lg:drawer-open">
+                <input id="nav-drawer"
+                       type="checkbox"
+                       class="drawer-toggle"
+                       aria-label="Toggle menu" />
+                <div class="drawer-content flex min-h-screen min-w-0 flex-col">
+                    <header class="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-base-content/10 bg-base-100/90 px-3 backdrop-blur sm:px-5">
+                        <label for="nav-drawer"
+                               class="btn btn-ghost btn-square btn-sm lg:hidden"
+                               title="Menu">
+                            <icons.Menu />
+                        </label>
                         <a preload
                            href="{{ base_url }}/"
-                           class="btn btn-ghost text-lg hidden sm:inline-flex">
+                           class="flex items-center gap-2 font-semibold tracking-tight lg:hidden">
+                            <BrandMark size="size-7" />
                             Earr
                         </a>
-                        <a preload
-                           href="{{ base_url }}/"
-                           class="btn btn-ghost text-lg sm:hidden">
-                            Earr
-                        </a>
-                        <a preload
-                           href="{{ base_url }}/search"
-                           class="btn btn-ghost btn-square"
-                           title="Search">
-                            <icons.Search />
-                        </a>
-                        <a preload
-                           href="{{ base_url }}/wishlist"
-                           class="btn btn-ghost btn-square group relative"
-                           title="Wishlist">
-                            <span class="opacity-0 group-hover:opacity-100 absolute left-2 top-2 transition-opacity duration-500">
-                                <icons.GiftSolid />
-                            </span>
-                            <span class="opacity-100 group-hover:opacity-0 absolute left-2 top-2 transition-opacity duration-500">
-                                <icons.Gift />
-                            </span>
-                        </a>
-                    </div>
-                    <div class="flex-none flex pr-4">
-                        <button class="btn btn-ghost btn-square light-dark-toggle"
-                                onclick="toggleTheme()">
-                            <script>
-                                setTheme();
-                            </script>
-                            <span class="theme-dark svg-dark">
-                                <icons.Moon />
-                            </span>
-                            <span class="theme-light svg-light">
-                                <icons.Sun />
-                            </span>
-                        </button>
-                        {% if user.can_logout() %}
-                            <button hx-post="{{ base_url }}/auth/logout"
-                                    class="btn btn-ghost btn-square"
-                                    title="Logout">
-                                <icons.DoorExit />
+                        <form id="topbar-search"
+                              action="{{ base_url }}/search"
+                              method="get"
+                              role="search"
+                              class="ml-auto hidden w-full max-w-md sm:block lg:ml-0">
+                            <label class="input input-sm w-full bg-base-200">
+                                <span class="opacity-50 [&_svg]:size-4">
+                                    <icons.Search />
+                                </span>
+                                <input type="search"
+                                       name="q"
+                                       placeholder="Search audiobooks"
+                                       autocomplete="off"
+                                       spellcheck="false" />
+                            </label>
+                        </form>
+                        <div class="ml-auto flex items-center gap-1">
+                            <a preload
+                               href="{{ base_url }}/search"
+                               class="btn btn-ghost btn-square btn-sm sm:hidden"
+                               title="Search">
+                                <icons.Search />
+                            </a>
+                            <button class="btn btn-ghost btn-square btn-sm light-dark-toggle"
+                                    title="Toggle dark mode"
+                                    onclick="toggleTheme()">
+                                <span class="theme-dark svg-dark">
+                                    <icons.Moon />
+                                </span>
+                                <span class="theme-light svg-light">
+                                    <icons.Sun />
+                                </span>
                             </button>
-                        {% endif %}
+                            {% if user and user.can_logout() %}
+                                <button hx-post="{{ base_url }}/auth/logout"
+                                        class="btn btn-ghost btn-square btn-sm"
+                                        title="Log out">
+                                    <icons.DoorExit />
+                                </button>
+                            {% endif %}
+                        </div>
+                    </header>
+                    <script>
+                        // the toggle above did not exist yet when the theme was first applied
+                        setTheme();
+                    </script>
+                    <main class="min-w-0 flex-1">
+                        {{ content }}
+                    </main>
+                </div>
+                <div class="drawer-side z-40">
+                    <label for="nav-drawer" aria-label="Close menu" class="drawer-overlay">
+                    </label>
+                    <aside class="flex min-h-full w-60 flex-col border-r border-base-content/10 bg-base-200">
                         <a preload
-                           href="{{ base_url }}/settings/account"
-                           class="btn btn-ghost btn-square group"
-                           title="Settings">
-                            <span class="group-hover:rotate-90 transition-all duration-500 ease-in-out">
-                                <icons.Settings />
-                            </span>
+                           href="{{ base_url }}/"
+                           class="flex h-14 shrink-0 items-center gap-3 px-5 text-lg font-semibold tracking-tight">
+                            <BrandMark />
+                            Earr
                         </a>
-                    </div>
-                </nav>
-            </header>
+                        <nav aria-label="Main" class="flex-1">
+                            <ul class="sidebar-menu menu w-full gap-0.5 px-3 py-2">
+                                <li>
+                                    <a preload href="{{ base_url }}/" data-nav="/" data-exact>
+                                        <icons.Compass />
+                                        Discover
+                                    </a>
+                                </li>
+                                <li>
+                                    <a preload href="{{ base_url }}/search" data-nav="/search">
+                                        <icons.Search />
+                                        Search
+                                    </a>
+                                </li>
+                                <li>
+                                    <a preload href="{{ base_url }}/library" data-nav="/library">
+                                        <icons.Books />
+                                        Library
+                                    </a>
+                                </li>
+                                <li>
+                                    <a preload href="{{ base_url }}/wishlist" data-nav="/wishlist">
+                                        <icons.Gift />
+                                        Wishlist
+                                    </a>
+                                </li>
+                                <li>
+                                    <a preload href="{{ base_url }}/activity" data-nav="/activity">
+                                        <icons.Download />
+                                        Activity
+                                        <span id="nav-activity-count" class="hidden"></span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a preload
+                                       href="{{ base_url }}/settings/account"
+                                       data-nav="/settings"
+                                       {% if user and user.is_admin() %}data-submenu="settings-nav"{% endif %}>
+                                        <icons.Settings />
+                                        Settings
+                                    </a>
+                                    {% if user and user.is_admin() %}
+                                        <ul id="settings-nav" class="hidden">
+                                            {% for slug, label in [
+                                                ("account", "Account"),
+                                                ("users", "Users"),
+                                                ("prowlarr", "Prowlarr"),
+                                                ("indexers", "Indexers"),
+                                                ("download", "Download"),
+                                                ("library", "Library"),
+                                                ("audiobookshelf", "Audiobookshelf"),
+                                                ("notifications", "Notifications"),
+                                                ("security", "Security"),
+                                            ] %}
+                                                <li>
+                                                    <a preload
+                                                       href="{{ base_url }}/settings/{{ slug }}"
+                                                       data-nav="/settings/{{ slug }}"
+                                                       data-exact>{{ label }}</a>
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% endif %}
+                                </li>
+                                {% if user and user.is_admin() %}
+                                    <li>
+                                        <a preload href="{{ base_url }}/system/status" data-nav="/system">
+                                            <icons.Pulse />
+                                            System
+                                            <span id="nav-system-dot" class="hidden"></span>
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                        {% if user %}
+                            {# fills in the Activity count and the System light after the page has loaded #}
+                            <div hx-get="{{ base_url }}/system/hx-sidebar"
+                                 hx-trigger="load delay:150ms, every 60s"
+                                 hx-swap="none">
+                            </div>
+                        {% endif %}
+                        {% if user %}
+                            <a preload
+                               href="{{ base_url }}/settings/account"
+                               class="m-3 flex items-center gap-3 rounded-box p-2 hover:bg-base-content/5"
+                               title="Your account">
+                                <span class="grid size-8 shrink-0 place-items-center rounded-full bg-base-content/10 text-sm font-semibold uppercase">
+                                    {{ user.username[:1] }}
+                                </span>
+                                <span class="min-w-0 leading-tight">
+                                    <span class="block truncate text-sm font-medium">{{ user.username }}</span>
+                                    <span class="block text-xs capitalize text-base-content/60">{{ user.group.value }}</span>
+                                </span>
+                            </a>
+                        {% endif %}
+                    </aside>
+                </div>
+            </div>
+            <script>
+                // pages are served separately, so the current one is marked here
+                (() => {
+                    const path = location.pathname.slice({{ base_url | tojson }}.length) || "/";
+                    const isCurrent = link => {
+                        const target = link.dataset.nav;
+                        if (link.hasAttribute("data-exact")) return path === target;
+                        return path === target || path.startsWith(target + "/");
+                    };
+                    for (const link of document.querySelectorAll("[data-nav]")) {
+                        if (!isCurrent(link)) continue;
+                        const submenu = link.dataset.submenu && document.getElementById(link.dataset.submenu);
+                        if (submenu) {
+                            submenu.classList.remove("hidden");
+                            link.classList.add("menu-parent-active");
+                        } else {
+                            link.classList.add("menu-active");
+                            link.setAttribute("aria-current", "page");
+                        }
+                    }
+                    // the search page has its own, fuller search box
+                    if (path === "/search" || path.startsWith("/search/")) {
+                        document.getElementById("topbar-search").classList.remove("sm:block");
+                    }
+                })();
+            </script>
         {% endif %}
-
-        {{ content }}
 
     </body>
 </html>

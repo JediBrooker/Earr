@@ -1,0 +1,109 @@
+# Keeps README.md in step with the code after every push to main:
+#   - the generated tables (environment variables, placeholders, notification
+#     events and variables) are rebuilt from the code
+#   - the screenshots, logo and feature graphic are retaken when the UI changed
+#   - Claude updates the prose for user-visible changes, if a key is set
+# See "This README" in README.md.
+name: README
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "templates/**"
+      - "static/**"
+      - "alembic/**"
+      - "Dockerfile"
+      - "docker-compose.yml"
+      - "pyproject.toml"
+      - "docs/**"
+      - "media/brand/**"
+      - "scripts/readme/**"
+      - ".github/workflows/readme.yaml"
+  workflow_dispatch:
+    inputs:
+      screenshots:
+        description: "Retake the screenshots and graphics"
+        type: boolean
+        default: false
+
+concurrency:
+  group: readme
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  readme:
+    runs-on: ubuntu-latest
+    env:
+      # secrets can't be used in `if:` directly, so expose whether one is set
+      HAS_CLAUDE: ${{ secrets.ANTHROPIC_API_KEY != '' || secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v6
+
+      - run: uv sync --locked --group readme
+
+      - name: Work out what changed
+        id: changes
+        run: |
+          BEFORE="${{ github.event.before }}"
+          # first push of a branch, a forced push or a manual run
+          if [ -z "$BEFORE" ] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            BEFORE=$(git rev-parse HEAD~1)
+          fi
+          echo "before=$BEFORE" >> "$GITHUB_OUTPUT"
+          if [ "${{ inputs.screenshots }}" = "true" ] || \
+             [ -n "$(git diff --name-only "$BEFORE" HEAD -- templates static media/brand scripts/readme)" ]; then
+            echo "ui=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ui=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update the prose
+        if: env.HAS_CLAUDE == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          BEFORE: ${{ steps.changes.outputs.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          # an empty key would win over the OAuth token
+          [ -n "$ANTHROPIC_API_KEY" ] || unset ANTHROPIC_API_KEY
+          npm install -g @anthropic-ai/claude-code
+          claude -p "$(envsubst '$BEFORE $AFTER' < scripts/readme/prose.md)" \
+            --model claude-sonnet-5-5 \
+            --max-turns 30 \
+            --allowedTools "Read,Edit,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*)"
+
+      - name: Regenerate the tables
+        run: uv run --group readme python -m scripts.readme tables
+
+      - name: Retake the screenshots and graphics
+        if: steps.changes.outputs.ui == 'true'
+        run: |
+          uv run --group readme playwright install --with-deps chromium
+          uv run --group readme python -m scripts.readme images
+
+      - name: Commit
+        run: |
+          # only the README and its images are this workflow's to change
+          git diff --name-only | grep -v -e '^README\.md$' -e '^media/' | xargs -r git checkout --
+          git add README.md media/
+          if git diff --cached --quiet; then
+            echo "README.md is up to date"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git commit -m "docs(readme): refresh for ${GITHUB_SHA::7}"
+          # pushes made with GITHUB_TOKEN don't start other workflows, so this
+          # doesn't loop or rebuild the image
+          git pull --rebase origin main
+          git push origin HEAD:main

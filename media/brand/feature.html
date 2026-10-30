@@ -1,0 +1,185 @@
+<!doctype html>
+<!--
+  The social preview and README hero, rendered to media/feature.png by
+  scripts/readme/capture.py at 1280x640. It shows two of the screenshots, so it
+  is rendered after them. Keep the palette in step with the app's dark theme.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Earr feature graphic</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600&family=Inter:wght@400;600&display=block"
+      rel="stylesheet"
+    />
+    <style>
+      /* the earr-dark theme from static/tw.css */
+      :root {
+        --bg: #14161b;
+        --bg-deep: #0e1014;
+        --accent: #8b93ff;
+        --accent-2: #2dd4bf;
+        --text: #e3e6ec;
+        --muted: #b4bac6;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 1280px;
+        height: 640px;
+        overflow: hidden;
+      }
+      body {
+        position: relative;
+        font-family: Inter, system-ui, sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(800px 480px at 88% 8%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%),
+          radial-gradient(700px 420px at 0% 100%, color-mix(in srgb, var(--accent-2) 18%, transparent), transparent 70%),
+          linear-gradient(160deg, var(--bg), var(--bg-deep));
+      }
+      .copy {
+        position: absolute;
+        left: 72px;
+        top: 96px;
+        width: 430px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 22px;
+      }
+      .brand img {
+        width: 96px;
+        height: 96px;
+        filter: drop-shadow(0 12px 24px rgb(0 0 0 / 0.35));
+      }
+      .brand h1 {
+        margin: 0;
+        font-family: Fredoka, sans-serif;
+        font-weight: 600;
+        font-size: 108px;
+        line-height: 1;
+        letter-spacing: -1px;
+      }
+      .tagline {
+        margin: 34px 0 28px;
+        font-size: 31px;
+        font-weight: 600;
+        line-height: 1.25;
+      }
+      ul {
+        display: grid;
+        gap: 14px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      li {
+        position: relative;
+        padding-left: 30px;
+        font-size: 20px;
+        line-height: 1.35;
+        color: var(--muted);
+      }
+      li::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 8px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--accent);
+      }
+      .browser {
+        position: absolute;
+        left: 610px;
+        top: 66px;
+        width: 820px;
+        overflow: hidden;
+        border: 1px solid rgb(255 255 255 / 0.08);
+        border-radius: 14px;
+        background: var(--bg-deep);
+        box-shadow: 0 30px 80px rgb(0 0 0 / 0.5);
+      }
+      .bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 36px;
+        padding: 0 14px;
+        background: #0b0c10;
+      }
+      .bar i {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+      }
+      .bar i:nth-child(1) {
+        background: #ff5f57;
+      }
+      .bar i:nth-child(2) {
+        background: #febc2e;
+      }
+      .bar i:nth-child(3) {
+        background: #28c840;
+      }
+      .bar span {
+        display: flex;
+        align-items: center;
+        width: 340px;
+        height: 22px;
+        margin-left: 16px;
+        padding: 0 10px;
+        border-radius: 6px;
+        background: rgb(255 255 255 / 0.07);
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .browser img {
+        display: block;
+        width: 100%;
+      }
+      .phone {
+        position: absolute;
+        left: 530px;
+        top: 178px;
+        width: 214px;
+        padding: 9px;
+        border-radius: 36px;
+        background: #0b0d11;
+        box-shadow: 0 30px 70px rgb(0 0 0 / 0.55);
+      }
+      .phone img {
+        display: block;
+        width: 100%;
+        border-radius: 28px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="copy">
+      <div class="brand">
+        <img src="../../static/favicon.svg" alt="" />
+        <h1>Earr</h1>
+      </div>
+      <p class="tagline">Audiobook requests for your whole household.</p>
+      <ul>
+        <li>Search Audible and request in one tap</li>
+        <li>Grabs the best release through Prowlarr, and shows why</li>
+        <li>Files finished books into your library</li>
+      </ul>
+    </div>
+    <div class="browser">
+      <div class="bar"><i></i><i></i><i></i><span>earr.local/search?q=brandon+sanderson</span></div>
+      <img src="../screenshots/search-dark.png" alt="" />
+    </div>
+    <div class="phone"><img src="../screenshots/mobile-dark.png" alt="" /></div>
+  </body>
+</html>

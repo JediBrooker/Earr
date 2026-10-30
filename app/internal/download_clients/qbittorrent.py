@@ -34,6 +34,25 @@ _DONE_STATES = {
     "checkingUP",
 }
 _FAILED_STATES = {"error", "missingFiles"}
+# what each state means to someone watching the download
+_STATUS = {
+    "downloading": "downloading",
+    "forcedDL": "downloading",
+    "metaDL": "fetching metadata",
+    "forcedMetaDL": "fetching metadata",
+    "stalledDL": "stalled, no peers sending",
+    "pausedDL": "paused",
+    "stoppedDL": "paused",
+    "queuedDL": "queued",
+    "checkingDL": "checking files",
+    "checkingResumeData": "checking files",
+    "allocating": "allocating space",
+    "moving": "moving files",
+    "error": "error",
+    "missingFiles": "files missing",
+}
+INFINITE_ETA = 8640000
+"""What qBittorrent reports when it can't estimate the time left."""
 
 
 def _s(data: JsonObject, key: str) -> str:
@@ -225,6 +244,7 @@ class QBittorrentClient(DownloadClient):
         else:
             resolved = DownloadState.downloading
 
+        eta = int(_f(torrent, "eta"))
         return DownloadInfo(
             state=resolved,
             name=_s(torrent, "name"),
@@ -233,4 +253,11 @@ class QBittorrentClient(DownloadClient):
             path=_s(torrent, "content_path") or None,
             progress=progress,
             error=state if resolved == DownloadState.failed else None,
+            size=int(_f(torrent, "size")) or None,
+            speed=int(_f(torrent, "dlspeed")),
+            eta=eta if 0 < eta < INFINITE_ETA else None,
+            status=_STATUS.get(
+                state,
+                "seeding" if resolved == DownloadState.completed else state or None,
+            ),
         )

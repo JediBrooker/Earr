@@ -77,3 +77,7 @@ dev = [
     "pytest-asyncio>=1.2.0",
     "ruff>=0.15.22",
 ]
+# only for regenerating the README screenshots and graphics, see scripts/readme
+readme = [
+    "playwright>=1.55.0",
+]

@@ -147,6 +147,8 @@ class AudiobookRequest(BaseSQLModel, table=True):
             nullable=False,
         ),
     )
+    approved: bool = False
+    """An admin said yes, so it is treated like a trusted user's request."""
 
     audiobook: Audiobook = Relationship(back_populates="requests")  # pyright: ignore[reportAny]
     user: User = Relationship()  # pyright: ignore[reportAny]
@@ -168,6 +170,19 @@ class AudiobookWishlistResult(BaseModel):
     @property
     def requested_by_usernames(self):
         return "\n".join(req.user_username for req in self.requests)
+
+    @property
+    def awaiting_approval(self) -> bool:
+        """Only untrusted users asked for it, and no admin has approved it yet.
+
+        Once a download has been tried, someone has already acted on it.
+        """
+        if self.book.downloaded or self.book.download_status or not self.requests:
+            return False
+        return not any(
+            req.approved or req.user.is_above(GroupEnum.trusted)
+            for req in self.requests
+        )
 
 
 class ManualBookRequest(BaseSQLModel, table=True):
@@ -192,10 +207,21 @@ class ManualBookRequest(BaseSQLModel, table=True):
         ),
     )
     downloaded: bool = False
+    approved: bool = False
+    """An admin said yes, so it is treated like a trusted user's request."""
+
+    user: User | None = Relationship()  # pyright: ignore[reportAny]
 
     model_config: SQLModelConfig = cast(
         SQLModelConfig, cast(object, ConfigDict(arbitrary_types_allowed=True))
     )
+
+    @property
+    def awaiting_approval(self) -> bool:
+        """Asked for by an untrusted user, and no admin has approved it yet."""
+        if self.downloaded or self.approved or self.download_status:
+            return False
+        return self.user is None or not self.user.is_above(GroupEnum.trusted)
 
 
 class BookMetadata(BaseSQLModel):
@@ -257,9 +283,17 @@ class Config(BaseSQLModel, table=True):
 
 class EventEnum(str, Enum):
     on_new_request = "onNewRequest"
+    """Someone requested a book."""
     on_grabbed = "onGrabbed"
+    """A source was sent to the download client."""
     on_successful_download = "onSuccessfulDownload"
+    """The files are in the library. With the library organizer on, this waits until they have been placed; otherwise it fires right after the grab. Also sent when an admin marks a book as downloaded."""
     on_failed_download = "onFailedDownload"
+    """Prowlarr could not start the download."""
+    on_request_approved = "onRequestApproved"
+    """An admin approved a request from someone whose requests need approval."""
+    on_request_declined = "onRequestDeclined"
+    """An admin declined a request. `{declineReason}` holds the reason they gave."""
 
 
 class NotificationBodyTypeEnum(str, Enum):

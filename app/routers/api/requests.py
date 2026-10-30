@@ -19,6 +19,12 @@ from app.internal.audible.types import (
     audible_regions,
     get_region_from_settings,
 )
+from app.internal.approvals import (
+    RequestNotFound,
+    approve,
+    decline,
+    notify_approved,
+)
 from app.internal.audiobookshelf.client import background_abs_trigger_scan
 from app.internal.audiobookshelf.config import abs_config
 from app.internal.auth.authentication import AnyAuth, DetailedUser
@@ -403,4 +409,56 @@ async def start_auto_download_endpoint(
     if result.error_message:
         raise ToastException(result.error_message, "info")
 
+    return Response(status_code=204)
+
+
+@router.post("/{asin_or_uuid}/approve", status_code=204)
+async def approve_request(
+    asin_or_uuid: str,
+    session: Annotated[Session, Depends(get_session)],
+    background_task: BackgroundTasks,
+    admin_user: Annotated[DetailedUser, Security(AnyAuth(GroupEnum.admin))],
+):
+    """Approves a request that waits for an admin.
+
+    It then counts like a trusted user's request: it starts downloading straight
+    away when automatic downloads are on, and is searched for again later if not.
+    """
+    _ = admin_user
+    try:
+        book = approve(session, asin_or_uuid)
+    except RequestNotFound:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    background_task.add_task(
+        notify_approved,
+        ManualBookRequest.model_validate(book)
+        if isinstance(book, ManualBookRequest)
+        else book.asin,
+    )
+    if quality_config.get_auto_download(session):
+        background_task.add_task(
+            background_start_query, asin_or_uuid=asin_or_uuid, auto_download=True
+        )
+    return Response(status_code=204)
+
+
+class DeclineBody(BaseModel):
+    reason: str = ""
+    """Passed to the onRequestDeclined notification as `{declineReason}`."""
+
+
+@router.post("/{asin_or_uuid}/decline", status_code=204)
+async def decline_request(
+    asin_or_uuid: str,
+    body: DeclineBody,
+    session: Annotated[Session, Depends(get_session)],
+    admin_user: Annotated[DetailedUser, Security(AnyAuth(GroupEnum.admin))],
+):
+    """Removes a request for everyone who asked, telling them why if a notification is set up."""
+    _ = admin_user
+    try:
+        _ = await decline(session, asin_or_uuid, body.reason)
+    except RequestNotFound:
+        raise HTTPException(status_code=404, detail="Request not found")
     return Response(status_code=204)

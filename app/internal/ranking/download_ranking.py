@@ -8,14 +8,55 @@ from rapidfuzz import fuzz, utils
 from sqlmodel import Session
 
 from app.internal.models import Audiobook, ManualBookRequest, ProwlarrSource
-from app.internal.ranking.quality import quality_config
+from app.internal.ranking.quality import (
+    FileFormat,
+    QualityFormatKey,
+    QualityRange,
+    quality_config,
+)
 from app.internal.ranking.quality_extract import Quality, extract_qualities
 from app.util.log import logger
+
+_RANGE_KEYS: dict[FileFormat, QualityFormatKey] = {
+    "flac": "quality_flac",
+    "m4b": "quality_m4b",
+    "mp3": "quality_mp3",
+    "unknown-audio": "quality_unknown_audio",
+    "unknown": "quality_unknown",
+}
+
+_FORMAT_LABELS: dict[FileFormat, str] = {
+    "flac": "FLAC",
+    "m4b": "M4B",
+    "mp3": "MP3",
+    "unknown-audio": "audio, format unknown",
+    "unknown": "format unknown",
+}
+
+_MATCH_HINT = "A title, author or narrator match is enough."
 
 
 class RankSource(pydantic.BaseModel):
     source: ProwlarrSource
     quality: Quality
+
+
+class SourceCheck(pydantic.BaseModel):
+    """One thing the ranking looked at, as shown next to a source."""
+
+    label: str
+    passed: bool | None = None
+    """None for information that ranks a source without passing or failing it."""
+    blocking: bool = False
+    """Whether this failure keeps the source from being downloaded automatically."""
+    hint: str | None = None
+
+
+class SourceVerdict(pydantic.BaseModel):
+    """Why a source ranked where it did and whether it clears the configured bar."""
+
+    meets_bar: bool
+    checks: list[SourceCheck]
 
 
 class RankedSources(pydantic.BaseModel):
@@ -28,6 +69,8 @@ class RankedSources(pydantic.BaseModel):
 
     all: list[ProwlarrSource]
     valid: list[ProwlarrSource]
+    verdicts: list[SourceVerdict]
+    """One per entry of `all`, in the same order."""
 
     @property
     def best_valid(self) -> ProwlarrSource | None:
@@ -51,9 +94,15 @@ async def rank_sources(
     compare = CompareSource(session, book, is_manual)
     rank_sources.sort(key=cmp_to_key(compare))
 
+    verdicts = [compare.explain(rs) for rs in rank_sources]
     return RankedSources(
         all=[rs.source for rs in rank_sources],
-        valid=[rs.source for rs in rank_sources if compare.is_valid(rs)],
+        valid=[
+            rs.source
+            for rs, verdict in zip(rank_sources, verdicts, strict=True)
+            if verdict.meets_bar
+        ],
+        verdicts=verdicts,
     )
 
 
@@ -98,27 +147,41 @@ class CompareSource:
             return self.compare_order[index]
         return default_compare
 
+    def _quality_range(self, file_format: FileFormat) -> QualityRange:
+        return quality_config.get_range(self.session, _RANGE_KEYS[file_format])
+
     def _is_valid_quality(self, a: RankSource) -> bool:
         if self.is_manual:
             return True
 
-        match a.quality.file_format:
-            case "flac":
-                quality_range = quality_config.get_range(self.session, "quality_flac")
-            case "m4b":
-                quality_range = quality_config.get_range(self.session, "quality_m4b")
-            case "mp3":
-                quality_range = quality_config.get_range(self.session, "quality_mp3")
-            case "unknown-audio":
-                quality_range = quality_config.get_range(
-                    self.session, "quality_unknown_audio"
-                )
-            case "unknown":
-                quality_range = quality_config.get_range(
-                    self.session, "quality_unknown"
-                )
-
+        quality_range = self._quality_range(a.quality.file_format)
         return quality_range.from_kbits < a.quality.kbits < quality_range.to_kbits
+
+    def _author_matches(self, source: ProwlarrSource) -> int:
+        """How many of the book's authors the source names, in its title or metadata."""
+        name_ratio = quality_config.get_name_exists_ratio(self.session)
+        return max(
+            vaguely_exist_in_title(self.book.authors, source.title, name_ratio),
+            fuzzy_author_narrator_match(
+                source.book_metadata.authors, self.book.authors, name_ratio
+            ),
+        )
+
+    def _narrator_matches(self, source: ProwlarrSource) -> int:
+        """How many of the book's narrators the source names, in its title or metadata."""
+        name_ratio = quality_config.get_name_exists_ratio(self.session)
+        return max(
+            vaguely_exist_in_title(self.book.narrators, source.title, name_ratio),
+            fuzzy_author_narrator_match(
+                source.book_metadata.narrators, self.book.narrators, name_ratio
+            ),
+        )
+
+    def _has_enough_seeders(self, source: ProwlarrSource) -> bool:
+        """Usenet has no seeders, so only torrents are held to the minimum."""
+        if source.protocol != "torrent":
+            return True
+        return source.seeders >= quality_config.get_min_seeders(self.session)
 
     def _has_minimum_match(self, a: RankSource) -> bool:
         """Check if source has at least a minimal match with the book.
@@ -128,7 +191,6 @@ class CompareSource:
         - At least one author/narrator match
         """
         title_ratio = quality_config.get_title_exists_ratio(self.session)
-        name_ratio = quality_config.get_name_exists_ratio(self.session)
 
         # Check title match
         title_match = exists_in_title(
@@ -146,35 +208,10 @@ class CompareSource:
             )
             return True
 
-        # Check author/narrator match
-        author_score = max(
-            vaguely_exist_in_title(
-                self.book.authors,
-                a.source.title,
-                name_ratio,
-            ),
-            fuzzy_author_narrator_match(
-                a.source.book_metadata.authors,
-                self.book.authors,
-                name_ratio,
-            ),
-        )
-
-        narrator_score = max(
-            vaguely_exist_in_title(
-                self.book.narrators,
-                a.source.title,
-                name_ratio,
-            ),
-            fuzzy_author_narrator_match(
-                a.source.book_metadata.narrators,
-                self.book.narrators,
-                name_ratio,
-            ),
-        )
-
         # Require at least one author OR one narrator match
-        return author_score > 0 or narrator_score > 0
+        return (
+            self._author_matches(a.source) > 0 or self._narrator_matches(a.source) > 0
+        )
 
     def is_valid(self, a: RankSource) -> bool:
         """Whether a source clears the configured bar at all.
@@ -183,13 +220,100 @@ class CompareSource:
         junk, the best of them is still junk, so this is what decides whether a
         source may be grabbed without a human looking at it.
         """
-        valid = self._is_valid_quality(a)
-        if a.source.protocol == "torrent":
-            valid = valid and a.source.seeders >= quality_config.get_min_seeders(
-                self.session
-            )
+        valid = self._is_valid_quality(a) and self._has_enough_seeders(a.source)
         # a reasonable match with the book: title, or author/narrator
         return valid and self._has_minimum_match(a)
+
+    def explain(self, a: RankSource) -> SourceVerdict:
+        """Spells out what is_valid checked, plus what else moved the source up or down."""
+        source = a.source
+        checks: list[SourceCheck] = []
+
+        # any one of title, author or narrator is enough (see _has_minimum_match),
+        # so a miss only blocks the source when all of them miss
+        title_ratio = quality_config.get_title_exists_ratio(self.session)
+        title_score = title_match_score(self.book.title, source.title)
+        authors = self._author_matches(source)
+        narrators = self._narrator_matches(source)
+        matched = title_score > title_ratio or authors > 0 or narrators > 0
+
+        checks.append(
+            SourceCheck(
+                label=f"title {title_score:.0f}%",
+                passed=title_score > title_ratio,
+                blocking=not matched,
+                hint=(
+                    f"How closely the release name contains the book title. Above "
+                    f"{title_ratio}% counts as a match. {_MATCH_HINT}"
+                ),
+            )
+        )
+        for role, found, people in (
+            ("author", authors, self.book.authors),
+            ("narrator", narrators, self.book.narrators),
+        ):
+            if not people:
+                continue
+            checks.append(
+                SourceCheck(
+                    label=role
+                    if len(people) == 1
+                    else f"{role}s {found}/{len(people)}",
+                    passed=found > 0,
+                    blocking=not matched,
+                    hint=(
+                        f"Looked for {', '.join(people)} in the release name and "
+                        f"its metadata. {_MATCH_HINT}"
+                    ),
+                )
+            )
+
+        if not self.is_manual:
+            quality_range = self._quality_range(a.quality.file_format)
+            quality_ok = self._is_valid_quality(a)
+            checks.append(
+                SourceCheck(
+                    label=(
+                        f"{_FORMAT_LABELS[a.quality.file_format]} "
+                        f"· {a.quality.kbits:.0f} kbps"
+                    ),
+                    passed=quality_ok,
+                    blocking=not quality_ok,
+                    hint=(
+                        "Estimated from the size and the book's runtime. Allowed for "
+                        f"this format: {quality_range.from_kbits:.0f} to "
+                        f"{quality_range.to_kbits:.0f} kbps."
+                    ),
+                )
+            )
+
+        if source.protocol == "torrent":
+            enough = self._has_enough_seeders(source)
+            checks.append(
+                SourceCheck(
+                    label=f"{source.seeders} seeder{'' if source.seeders == 1 else 's'}",
+                    passed=enough,
+                    blocking=not enough,
+                    hint=(
+                        f"At least {quality_config.get_min_seeders(self.session)} "
+                        "needed for an automatic download."
+                    ),
+                )
+            )
+
+        for flag in quality_config.get_indexer_flags(self.session):
+            if flag.score and flag.flag.lower() in source.indexer_flags:
+                checks.append(
+                    SourceCheck(
+                        label=f"{flag.flag} {flag.score:+d}",
+                        hint=(
+                            "Indexer flag priority from the download settings. It "
+                            "moves a source up or down but never blocks it."
+                        ),
+                    )
+                )
+
+        return SourceVerdict(meets_bar=self.is_valid(a), checks=checks)
 
     def _compare_valid(self, a: RankSource, b: RankSource, next_compare: int) -> int:
         """Sorts sources that fail the configured bar to the bottom"""
@@ -270,30 +394,8 @@ class CompareSource:
         return int(b_title) - int(a_title)
 
     def _compare_authors(self, a: RankSource, b: RankSource, next_compare: int) -> int:
-        a_score = max(
-            vaguely_exist_in_title(
-                self.book.authors,
-                a.source.title,
-                quality_config.get_name_exists_ratio(self.session),
-            ),
-            fuzzy_author_narrator_match(
-                a.source.book_metadata.authors,
-                self.book.authors,
-                quality_config.get_name_exists_ratio(self.session),
-            ),
-        )
-        b_score = max(
-            vaguely_exist_in_title(
-                self.book.authors,
-                b.source.title,
-                quality_config.get_name_exists_ratio(self.session),
-            ),
-            fuzzy_author_narrator_match(
-                b.source.book_metadata.authors,
-                self.book.authors,
-                quality_config.get_name_exists_ratio(self.session),
-            ),
-        )
+        a_score = self._author_matches(a.source)
+        b_score = self._author_matches(b.source)
         if a_score == b_score:
             return self._get_next_compare(next_compare)(a, b, next_compare + 1)
         return b_score - a_score
@@ -301,30 +403,8 @@ class CompareSource:
     def _compare_narrators(
         self, a: RankSource, b: RankSource, next_compare: int
     ) -> int:
-        a_score = max(
-            vaguely_exist_in_title(
-                self.book.narrators,
-                a.source.title,
-                quality_config.get_name_exists_ratio(self.session),
-            ),
-            fuzzy_author_narrator_match(
-                a.source.book_metadata.narrators,
-                self.book.narrators,
-                quality_config.get_name_exists_ratio(self.session),
-            ),
-        )
-        b_score = max(
-            vaguely_exist_in_title(
-                self.book.narrators,
-                b.source.title,
-                quality_config.get_name_exists_ratio(self.session),
-            ),
-            fuzzy_author_narrator_match(
-                b.source.book_metadata.narrators,
-                self.book.narrators,
-                quality_config.get_name_exists_ratio(self.session),
-            ),
-        )
+        a_score = self._narrator_matches(a.source)
+        b_score = self._narrator_matches(b.source)
         if a_score == b_score:
             return self._get_next_compare(next_compare)(a, b, next_compare + 1)
         return b_score - a_score
@@ -377,8 +457,10 @@ def vaguely_exist_in_title(words: list[str], title: str, name_exists_ratio: int)
     )
 
 
+def title_match_score(word: str, title: str) -> float:
+    """How closely `word` appears somewhere in `title`, from 0 to 100."""
+    return fuzz.partial_ratio(word, title, processor=utils.default_process)
+
+
 def exists_in_title(word: str, title: str, title_exists_ratio: int) -> bool:
-    return (
-        fuzz.partial_ratio(word, title, processor=utils.default_process)
-        > title_exists_ratio
-    )
+    return title_match_score(word, title) > title_exists_ratio

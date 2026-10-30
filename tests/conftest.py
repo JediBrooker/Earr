@@ -9,7 +9,7 @@ import os
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import Iterator
+from typing import Any, Iterator
 
 os.environ.setdefault(
     "EARR_APP__CONFIG_DIR", tempfile.mkdtemp(prefix="earr-tests-config-")
@@ -155,6 +155,32 @@ def manual_request(**overrides: object) -> ManualBookRequest:
         "publish_date": "2021-06-02",
     }
     return ManualBookRequest(**(defaults | overrides))  # pyright: ignore[reportArgumentType]
+
+
+@pytest.fixture
+async def serve() -> Any:
+    """Starts throwaway aiohttp servers standing in for other services.
+
+    Call it with a list of routes; it returns the server's base url.
+    """
+    from aiohttp import web
+
+    servers: list[Any] = []
+
+    async def _start(routes: list[Any]) -> str:
+        app = web.Application()
+        app.add_routes(routes)
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner, "127.0.0.1", 0)
+        await site.start()
+        servers.append(runner)
+        port = runner.addresses[0][1]
+        return f"http://127.0.0.1:{port}"
+
+    yield _start
+    for runner in servers:
+        await runner.cleanup()
 
 
 # --- HTTP layer -------------------------------------------------------------

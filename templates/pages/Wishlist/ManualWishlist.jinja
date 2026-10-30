@@ -56,10 +56,16 @@
                 <th>
                     {{ loop.index }}
                 </th>
-                <td class="{% if book.subtitle %}flex{% endif %} flex-col">
+                <td class="flex flex-col">
                     <span>{{ book.title }}</span>
                     {% if book.subtitle %}
                         <span class="font-semibold line-clamp-4">{{ book.subtitle }}</span>
+                    {% endif %}
+                    {% if book.awaiting_approval %}
+                        <span class="badge badge-sm badge-warning mt-1 w-fit whitespace-nowrap"
+                              title="Requested by someone whose requests need an admin's approval.">
+                            awaiting approval
+                        </span>
                     {% endif %}
                 </td>
                 <td>
@@ -90,15 +96,65 @@
                        title="Edit">
                         <icons.Pencil />
                     </a>
-                    <button title="Remove"
-                            class="btn btn-square"
-                            {% if not user.is_admin() %}disabled{% endif %}
-                            hx-delete="{{ base_url }}/wishlist/manual/hx-delete/{{ book.id }}"
-                            hx-swap="outerHTML"
-                            hx-target="#book-table-body"
-                            hx-disabled-elt="this">
-                        <icons.Ban />
-                    </button>
+                    {% if user.is_admin() and not book.downloaded %}
+                        <button title="Decline"
+                                class="btn btn-square"
+                                onclick="declineManual{{ loop.index }}.showModal()">
+                            <icons.Ban />
+                        </button>
+                        <dialog id="declineManual{{ loop.index }}" class="modal">
+                            <form class="modal-box flex flex-col gap-3"
+                                  hx-post="{{ base_url }}/wishlist/manual/hx-decline/{{ book.id }}"
+                                  hx-target="#book-table-body"
+                                  hx-swap="outerHTML">
+                                <h3 class="text-lg font-bold">
+                                    Decline {{ book.title }}?
+                                </h3>
+                                <p class="text-sm text-base-content/70">
+                                    The request is removed. If a notification is set up for declined requests, it is sent with your reason.
+                                </p>
+                                <textarea name="reason"
+                                          class="textarea w-full"
+                                          maxlength="500"
+                                          placeholder="Reason (optional)"></textarea>
+                                <div class="modal-action mt-0">
+                                    <button type="button"
+                                            class="btn btn-ghost"
+                                            onclick="this.closest('dialog').close()">
+                                        Cancel
+                                    </button>
+                                    <button class="btn btn-error">
+                                        Decline
+                                    </button>
+                                </div>
+                            </form>
+                            <form method="dialog" class="modal-backdrop">
+                                <button>
+                                    close
+                                </button>
+                            </form>
+                        </dialog>
+                    {% else %}
+                        <button title="Remove"
+                                class="btn btn-square"
+                                {% if not user.is_admin() %}disabled{% endif %}
+                                hx-delete="{{ base_url }}/wishlist/manual/hx-delete/{{ book.id }}"
+                                hx-swap="outerHTML"
+                                hx-target="#book-table-body"
+                                hx-disabled-elt="this">
+                            <icons.Ban />
+                        </button>
+                    {% endif %}
+                    {% if user.is_admin() and book.awaiting_approval %}
+                        <button title="Approve"
+                                class="btn btn-square btn-primary"
+                                hx-post="{{ base_url }}/wishlist/manual/hx-approve/{{ book.id }}"
+                                hx-swap="outerHTML"
+                                hx-target="#book-table-body"
+                                hx-disabled-elt="this">
+                            <icons.ThumbUp />
+                        </button>
+                    {% endif %}
                     {% if book.downloaded %}
                         <button class="btn btn-square btn-ghost bg-success text-neutral/20"
                                 disabled

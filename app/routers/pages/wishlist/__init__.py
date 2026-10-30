@@ -1,17 +1,20 @@
 from typing import Annotated
 
 from aiohttp import ClientSession
-from fastapi import APIRouter, Depends, Security
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, Security
 from sqlmodel import Session
 
 from app.internal.auth.authentication import EarrAuth, DetailedUser
 from app.internal.db_queries import get_wishlist_counts, get_wishlist_results
 from app.internal.models import GroupEnum
+from app.routers.api.requests import DeclineBody
+from app.routers.api.requests import approve_request as api_approve_request
+from app.routers.api.requests import decline_request as api_decline_request
 from app.routers.api.requests import delete_request as api_delete_request
 from app.routers.api.requests import start_auto_download_endpoint
 from app.util.connection import get_connection
 from app.util.db import get_session
-from app.util.templates import catalog_response
+from app.util.templates import catalog_response, catalog_response_toast
 
 from . import downloaded, manual, sources
 
@@ -56,6 +59,46 @@ async def start_auto_download(
         results=results,
         page="wishlist",
         counts=counts,
+        update_tablist=True,
+    )
+
+
+@router.post("/hx-approve/{asin}")
+async def approve_request(
+    asin: str,
+    session: Annotated[Session, Depends(get_session)],
+    background_task: BackgroundTasks,
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
+):
+    _ = await api_approve_request(asin, session, background_task, admin_user)
+    return catalog_response_toast(
+        "Wishlist.Wishlist",
+        "Approved",
+        "success",
+        user=admin_user,
+        results=get_wishlist_results(session, None, "not_downloaded"),
+        page="wishlist",
+        counts=get_wishlist_counts(session, admin_user),
+        update_tablist=True,
+    )
+
+
+@router.post("/hx-decline/{asin}")
+async def decline_request(
+    asin: str,
+    session: Annotated[Session, Depends(get_session)],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
+    reason: Annotated[str, Form()] = "",
+):
+    _ = await api_decline_request(asin, DeclineBody(reason=reason), session, admin_user)
+    return catalog_response_toast(
+        "Wishlist.Wishlist",
+        "Declined",
+        "info",
+        user=admin_user,
+        results=get_wishlist_results(session, None, "not_downloaded"),
+        page="wishlist",
+        counts=get_wishlist_counts(session, admin_user),
         update_tablist=True,
     )
 

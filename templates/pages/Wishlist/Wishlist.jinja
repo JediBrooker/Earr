@@ -113,6 +113,12 @@
                                             </span>
                                         {% endif %}
                                     {% endif %}
+                                    {% if page.__eq__("wishlist") and result.awaiting_approval %}
+                                        <span class="badge badge-sm badge-warning mt-1 whitespace-nowrap"
+                                              title="Only people whose requests need an admin's approval asked for this.">
+                                            awaiting approval
+                                        </span>
+                                    {% endif %}
                                 </div>
                             </td>
                             <td>
@@ -179,14 +185,64 @@
                                         hx-disabled-elt="this">
                                     <icons.Download />
                                 </button>
-                                <button title="Remove"
-                                        class="btn btn-square"
-                                        hx-delete="{{ base_url }}/wishlist/hx-delete/{{ book.asin }}{%- if page.__eq__('downloaded') -%}?downloaded=true{%- endif -%}"
-                                        hx-swap="outerHTML"
-                                        hx-target="#book-table-body"
-                                        hx-disabled-elt="this">
-                                    <icons.Ban />
-                                </button>
+                                {% if user.is_admin() and page.__eq__("wishlist") %}
+                                    <button title="Decline"
+                                            class="btn btn-square"
+                                            onclick="decline{{ loop.index }}.showModal()">
+                                        <icons.Ban />
+                                    </button>
+                                    <dialog id="decline{{ loop.index }}" class="modal">
+                                        <form class="modal-box flex flex-col gap-3"
+                                              hx-post="{{ base_url }}/wishlist/hx-decline/{{ book.asin }}"
+                                              hx-target="#book-table-body"
+                                              hx-swap="outerHTML">
+                                            <h3 class="text-lg font-bold">
+                                                Decline {{ book.title }}?
+                                            </h3>
+                                            <p class="text-sm text-base-content/70">
+                                                The request is removed{% if result.amount_requested > 1 %} for all {{ result.amount_requested }} people who asked{% endif %}. If a notification is set up for declined requests, it is sent with your reason.
+                                            </p>
+                                            <textarea name="reason"
+                                                      class="textarea w-full"
+                                                      maxlength="500"
+                                                      placeholder="Reason (optional)"></textarea>
+                                            <div class="modal-action mt-0">
+                                                <button type="button"
+                                                        class="btn btn-ghost"
+                                                        onclick="this.closest('dialog').close()">
+                                                    Cancel
+                                                </button>
+                                                <button class="btn btn-error">
+                                                    Decline
+                                                </button>
+                                            </div>
+                                        </form>
+                                        <form method="dialog" class="modal-backdrop">
+                                            <button>
+                                                close
+                                            </button>
+                                        </form>
+                                    </dialog>
+                                {% else %}
+                                    <button title="Remove"
+                                            class="btn btn-square"
+                                            hx-delete="{{ base_url }}/wishlist/hx-delete/{{ book.asin }}{%- if page.__eq__('downloaded') -%}?downloaded=true{%- endif -%}"
+                                            hx-swap="outerHTML"
+                                            hx-target="#book-table-body"
+                                            hx-disabled-elt="this">
+                                        <icons.Ban />
+                                    </button>
+                                {% endif %}
+                                {% if user.is_admin() and page.__eq__("wishlist") and result.awaiting_approval %}
+                                    <button title="Approve"
+                                            class="btn btn-square btn-primary"
+                                            hx-post="{{ base_url }}/wishlist/hx-approve/{{ book.asin }}"
+                                            hx-swap="outerHTML"
+                                            hx-target="#book-table-body"
+                                            hx-disabled-elt="this">
+                                        <icons.ThumbUp />
+                                    </button>
+                                {% endif %}
                                 {% if book.downloaded %}
                                     <button class="btn btn-square btn-ghost bg-success text-neutral/20"
                                             disabled
