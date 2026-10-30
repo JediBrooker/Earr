@@ -1,0 +1,32 @@
+{#def
+    report: HealthReport,
+#}
+
+<section id="health-checks" class="flex flex-col gap-2">
+    <div class="divide-y divide-base-content/10 rounded-box border border-base-content/10">
+        {% for check in report.checks %}
+            {% set level = check.level.value %}
+            <div class="flex items-start gap-3 p-4">
+                <span class="status mt-2 shrink-0 {% if level == 'ok' %}status-success{% elif level == 'warning' %}status-warning{% elif level == 'error' %}status-error{% else %}status-neutral opacity-50{% endif %}"
+                      aria-label="{{ level }}"></span>
+                <div class="min-w-0 flex-1">
+                    <p class="font-medium">
+                        {{ check.name }}
+                    </p>
+                    <p class="text-sm break-words {% if level == 'error' %}text-error{% else %}text-base-content/70{% endif %}">
+                        {{ check.message }}
+                    </p>
+                </div>
+                {% if check.fix_path %}
+                    <a preload
+                       href="{{ base_url }}{{ check.fix_path }}"
+                       class="btn btn-sm btn-ghost shrink-0">{% if level == 'off' %}Set up{% else %}Fix{% endif %}</a>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+    <p class="text-xs text-base-content/60">
+        Checked at {{ report.checked_at.strftime("%H:%M:%S") }}.
+        Results are reused for a minute.
+    </p>
+</section>

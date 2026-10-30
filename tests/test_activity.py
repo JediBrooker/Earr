@@ -1,5 +1,6 @@
 """The Activity page: downloads on their way to the library, and recent history."""
 
+from typing import Iterator
 from unittest import mock
 
 import pytest
@@ -16,6 +17,7 @@ from app.internal.download_clients.abstract import (
     DownloadState,
 )
 from app.internal.download_clients.config import download_client_config
+from app.internal.health import forget_report
 from app.internal.library.config import library_config
 from app.internal.models import (
     Audiobook,
@@ -66,6 +68,13 @@ class FakeClient(DownloadClient):
     ) -> DownloadInfo | None:
         self.lookups.append((client_id, name))
         return self.info
+
+
+@pytest.fixture(autouse=True)
+def _fresh_report() -> Iterator[None]:
+    forget_report()
+    yield
+    forget_report()
 
 
 def with_client(info: DownloadInfo | None) -> tuple[FakeClient, object]:
@@ -240,3 +249,36 @@ class TestPages:
 
         assert "library organizing is on" in response.text
         assert "Nothing downloading" in response.text
+
+    def test_the_sidebar_counts_downloads_and_shows_the_health_light(
+        self, client: TestClient, session: Session
+    ):
+        _, reader = users(session)
+        grab(session, series_book(), reader.username)
+
+        as_admin = client.get("/system/hx-sidebar", auth=("boss", "boss-password"))
+        as_reader = client.get("/system/hx-sidebar", auth=("reader", "reader-password"))
+
+        assert as_admin.status_code == 200, as_admin.text
+        assert 'id="nav-activity-count"' in as_admin.text
+        assert ">1</span>" in as_admin.text
+        assert 'id="nav-system-dot"' in as_admin.text
+        assert 'id="nav-system-dot"' not in as_reader.text, "only admins can fix it"
+
+    def test_the_system_page_lists_every_check(
+        self, client: TestClient, session: Session
+    ):
+        users(session)
+
+        response = client.get("/system/status", auth=("boss", "boss-password"))
+
+        assert response.status_code == 200, response.text
+        for name in ("Prowlarr", "qBittorrent", "SABnzbd", "Audiobookshelf", "Library folders"):
+            assert name in response.text
+
+    def test_only_admins_see_the_system_page(self, client: TestClient, session: Session):
+        users(session)
+
+        response = client.get("/system/status", auth=("reader", "reader-password"))
+
+        assert response.status_code == 403

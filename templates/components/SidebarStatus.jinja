@@ -1,0 +1,18 @@
+{#def
+    activity: int,
+    report: HealthReport | None = None,
+#}
+
+{# swapped into the sidebar out of band; see /system/hx-sidebar #}
+<span id="nav-activity-count"
+      hx-swap-oob="true"
+      class="{% if activity %}badge badge-sm badge-primary ml-auto{% else %}hidden{% endif %}"
+      title="Downloads on their way to the library">{{ activity }}</span>
+{% set level = report.level.value if report else "" %}
+{% set problems = (report.problems | length) if report else 0 %}
+{% if report %}
+    <span id="nav-system-dot"
+          hx-swap-oob="true"
+          class="status ml-auto {% if level == 'error' %}status-error{% elif level == 'warning' %}status-warning{% else %}status-success{% endif %}"
+          title="{% if problems %}{{ problems }} thing{{ '' if problems == 1 else 's' }} need{{ 's' if problems == 1 else '' }} attention{% else %}Everything is working{% endif %}"></span>
+{% endif %}

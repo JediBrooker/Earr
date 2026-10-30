@@ -219,8 +219,24 @@
                                         </ul>
                                     {% endif %}
                                 </li>
+                                {% if user and user.is_admin() %}
+                                    <li>
+                                        <a preload href="{{ base_url }}/system/status" data-nav="/system">
+                                            <icons.Pulse />
+                                            System
+                                            <span id="nav-system-dot" class="hidden"></span>
+                                        </a>
+                                    </li>
+                                {% endif %}
                             </ul>
                         </nav>
+                        {% if user %}
+                            {# fills in the Activity count and the System light after the page has loaded #}
+                            <div hx-get="{{ base_url }}/system/hx-sidebar"
+                                 hx-trigger="load delay:150ms, every 60s"
+                                 hx-swap="none">
+                            </div>
+                        {% endif %}
                         {% if user %}
                             <a preload
                                href="{{ base_url }}/settings/account"

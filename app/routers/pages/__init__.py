@@ -11,6 +11,7 @@ from . import (
     search,
     settings,
     static,
+    system,
     wishlist,
 )
 
@@ -26,4 +27,5 @@ router.include_router(request.router)
 router.include_router(search.router)
 router.include_router(settings.router)
 router.include_router(static.router)
+router.include_router(system.router)
 router.include_router(wishlist.router)
