@@ -2,7 +2,7 @@ import asyncio
 from collections import OrderedDict, defaultdict
 from datetime import datetime
 from itertools import chain
-from typing import Counter, Iterable
+from typing import Callable, Counter, Iterable
 
 from aiohttp import ClientSession
 from pydantic import BaseModel
@@ -44,7 +44,7 @@ async def get_user_sims_recommendations(
     seed_asins: Iterable[str] | None = None,
     limit: int = 10,
     offset: int = 0,
-    exclude_asins: set[str] | None = None,
+    exclude: Callable[[Audiobook], bool] | None = None,
 ) -> UserSimsRecommendation:
     """
     Build personalized recommendations by aggregating Audible "similar" results
@@ -146,7 +146,7 @@ async def get_user_sims_recommendations(
     candidate_scores: list[_BookScore] = []
     for sim in similar_books:
         # already on the shelf, whether Earr put it there or not
-        if sim.book.downloaded or (exclude_asins and sim.book.asin in exclude_asins):
+        if sim.book.downloaded or (exclude and exclude(sim.book)):
             continue
 
         avg_pos = sum(positions[sim.book.asin]) / max(1, len(positions[sim.book.asin]))

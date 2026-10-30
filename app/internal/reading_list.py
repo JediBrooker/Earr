@@ -13,19 +13,18 @@ from typing import Literal
 
 from aiohttp import ClientSession
 from pydantic import BaseModel
-from rapidfuzz import fuzz, utils
+from rapidfuzz import utils
 from sqlmodel import Session, select
 
+from app.internal.audible.matching import match_book
+from app.internal.audible.matching import same_author as same_author
 from app.internal.audible.search import search_audible_books
-from app.internal.audiobookshelf.catalog import library_asins
+from app.internal.audiobookshelf.catalog import library_index
 from app.internal.book_page import with_requests
-from app.internal.language import is_preferred
 from app.internal.models import Audiobook, AudiobookRequest, AudiobookWithRequests, User
 
 MAX_ENTRIES = 150
 """Each one is an Audible search, so a huge shelf is cut off here."""
-TITLE_MATCH = 85
-AUTHOR_MATCH = 80
 CONCURRENCY = 5
 
 
@@ -93,46 +92,11 @@ def parse_export(text: str) -> ParsedList:
     )
 
 
-def same_author(a: str, b: str) -> bool:
-    """Close spellings, or the same surname and first initial ("J.R.R. Tolkien"
-    and "J. R. R. Tolkien"), but not Frank and Brian Herbert."""
-    a_parts = utils.default_process(a).split()
-    b_parts = utils.default_process(b).split()
-    if not a_parts or not b_parts:
-        return False
-    if fuzz.token_sort_ratio(" ".join(a_parts), " ".join(b_parts)) >= AUTHOR_MATCH + 5:
-        return True
-    return a_parts[-1] == b_parts[-1] and a_parts[0][0] == b_parts[0][0]
-
-
 def best_match(
     session: Session, entry: ListEntry, results: list[Audiobook]
 ) -> Audiobook | None:
     """The result that really is this book: the title and an author have to match."""
-
-    def score(book: Audiobook) -> tuple[bool, bool, float]:
-        return (
-            is_preferred(session, book.language),
-            "dramatized" not in book.title.lower(),
-            # the closest title, so "Dune" beats "Dune Messiah"
-            fuzz.ratio(entry.title, book.title, processor=utils.default_process),
-        )
-
-    candidates: list[Audiobook] = []
-    for book in results:
-        if (
-            fuzz.token_set_ratio(
-                entry.title, book.title, processor=utils.default_process
-            )
-            < TITLE_MATCH
-        ):
-            continue
-        if entry.author and not any(same_author(entry.author, a) for a in book.authors):
-            continue
-        candidates.append(book)
-    if not candidates:
-        return None
-    return max(candidates, key=score)
+    return match_book(session, entry.title, entry.author, results)
 
 
 async def match_entries(
@@ -152,7 +116,7 @@ async def match_entries(
     found = await asyncio.gather(*(search(e) for e in entries))
     matched = [best_match(session, e, r) for e, r in zip(entries, found, strict=True)]
 
-    owned = await library_asins(session, client_session)
+    owned = await library_index(session, client_session)
     mine = set(
         session.exec(
             select(AudiobookRequest.asin).where(
@@ -169,7 +133,7 @@ async def match_entries(
             results.append(ListMatch(entry=entry, book=None, status="missing"))
             continue
         stored = by_asin[book.asin]
-        if stored.book.downloaded or book.asin in owned:
+        if stored.book.downloaded or owned.has_book(book):
             status = "owned"
         elif book.asin in mine:
             status = "requested"
