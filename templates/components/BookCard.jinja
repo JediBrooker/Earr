@@ -7,6 +7,7 @@
 
 {% set book = book_with_requests.book %}
 {% set already_requested = book_with_requests.already_requested %}
+{% set series_label = (book.series or "") ~ (" #" ~ book.series_position if book.series and book.series_position else "") %}
 
 <div class="book-card flex flex-col">
     <div class="relative w-32 h-32 sm:w-40 sm:h-40 rounded-md overflow-hidden shadow shadow-black items-center justify-center flex">
@@ -69,7 +70,14 @@
             {{ book.title }}
         </div>
     {% endif %}
-    {% if book.subtitle %}
+    {% if book.series %}
+        <div class="text-xs font-semibold text-secondary line-clamp-1"
+             title="{{ series_label }}">
+            {{ series_label }}
+        </div>
+    {% endif %}
+    {# Audible subtitles are often just "<series>, Book 1", which the series line already says #}
+    {% if book.subtitle and not (book.series and book.series | lower in book.subtitle | lower) %}
         <div class="opacity-60 font-semibold text-xs line-clamp-1"
              title="{{ book.subtitle }}">
             {{ book.subtitle }}
@@ -78,7 +86,7 @@
     <div class="text-xs font-semibold line-clamp-1"
          title="Authors: {{ book.authors | join(", ") }}">
         {% for author in book.authors[:2] %}
-            <a href="{{ base_url }}/search?q={{ author }}"
+            <a href="{{ base_url }}/search?q={{ author | urlencode }}"
                title="Search for {{ author }}"
                class="hover:underline">
                 {{ author }}
@@ -88,10 +96,25 @@
             <span class="opacity-60">+{{ book.authors | length - 2 }} more</span>
         {% endif %}
     </div>
-    <!-- Runtime -->
-    {% if book.runtime_length_hrs %}
-        <div class="text-xs opacity-60 mt-1">
-            {{ book.runtime_length_hrs }}h
+    {% if book.narrators %}
+        <div class="text-xs line-clamp-1"
+             title="Narrators: {{ book.narrators | join(", ") }}">
+            <span class="opacity-60">Read by</span>
+            {% for narrator in book.narrators[:2] %}
+                <a href="{{ base_url }}/search?q={{ narrator | urlencode }}"
+                   title="Search for {{ narrator }}"
+                   class="hover:underline">
+                    {{ narrator }}
+                {{- "," if loop.index < book.narrators | length and loop.index < 2 else "" -}}</a>
+            {% endfor %}
+            {% if book.narrators | length > 2 %}
+                <span class="opacity-60">+{{ book.narrators | length - 2 }} more</span>
+            {% endif %}
         </div>
     {% endif %}
+    <!-- Release year and runtime -->
+    <div class="text-xs opacity-60 mt-1">
+        {{ book.release_date.year }}
+        {%- if book.runtime_length_min %} · {{ book.runtime_length_hrs }}h{% endif %}
+    </div>
 </div>
