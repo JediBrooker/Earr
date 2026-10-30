@@ -1,0 +1,119 @@
+{#def
+    user: DetailedUser,
+    result: LibraryPage,
+    query: str,
+#}
+
+<BaseLayout title="Library" user={{ user }}>
+<div class="flex w-full flex-col gap-6 p-4 sm:p-6 lg:p-8">
+    <div class="flex flex-wrap items-end justify-between gap-4">
+        <div>
+            <h1 class="text-3xl font-bold tracking-tight">
+                Library
+            </h1>
+            <p class="text-sm text-base-content/70">
+                {% if result.source == "audiobookshelf" %}
+                    {{ result.total }} book{{ "" if result.total == 1 else "s" }} in Audiobookshelf{% if query %} matching “{{ query }}”{% endif %}.
+                {% else %}
+                    {{ result.total }} book{{ "" if result.total == 1 else "s" }} Earr has placed in the library.
+                {% endif %}
+            </p>
+        </div>
+        <form method="get"
+              action="{{ base_url }}/library"
+              role="search"
+              class="w-full max-w-sm">
+            <label class="input input-sm w-full">
+                <span class="opacity-50 [&_svg]:size-4">
+                    <icons.Search />
+                </span>
+                <input type="search"
+                       name="q"
+                       value="{{ query }}"
+                       placeholder="Find in your library"
+                       autocomplete="off" />
+            </label>
+        </form>
+    </div>
+
+    {% if result.source == "earr" %}
+        <div role="alert" class="alert">
+            <span class="stroke-info h-6 w-6 shrink-0">
+                <icons.InfoCircle />
+            </span>
+            <span>
+                Connect Audiobookshelf to browse everything in your library here.
+                {% if user.is_admin() %}
+                    <a preload class="link" href="{{ base_url }}/settings/audiobookshelf">Set it up</a>.
+                {% endif %}
+            </span>
+        </div>
+    {% endif %}
+    {% if result.error %}
+        <div role="alert" class="alert alert-error">
+            <span>{{ result.error }}</span>
+        </div>
+    {% endif %}
+
+    {% if not result.books and not result.error %}
+        <div class="rounded-box border border-dashed border-base-content/20 p-10 text-center">
+            <p class="font-medium">
+                {% if query %}
+                    Nothing matches “{{ query }}”
+                {% else %}
+                    The library is empty
+                {% endif %}
+            </p>
+        </div>
+    {% endif %}
+
+    <div class="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-x-3 gap-y-6 sm:grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] sm:gap-x-4">
+        {% for book in result.books %}
+            <a class="library-book group flex min-w-0 flex-col"
+               {% if book.link %}href="{{ book.link }}" target="_blank" rel="noopener" title="Open in Audiobookshelf"{% endif %}>
+                <div class="aspect-square w-full overflow-hidden rounded-md bg-base-200 shadow-sm">
+                    {% if book.cover_url %}
+                        <img src="{{ book.cover_url }}"
+                             alt=""
+                             loading="lazy"
+                             class="size-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                    {% else %}
+                        <div class="grid size-full place-items-center opacity-30">
+                            <icons.PhotoOff />
+                        </div>
+                    {% endif %}
+                </div>
+                <p class="pt-1 text-sm font-bold text-primary line-clamp-2">
+                    {{ book.title }}
+                </p>
+                {% if book.series %}
+                    <p class="text-xs font-semibold text-secondary line-clamp-1">
+                        {{ book.series }}
+                    </p>
+                {% endif %}
+                <p class="text-xs font-semibold line-clamp-1">
+                    {{ book.author }}
+                </p>
+                {% if book.narrator %}
+                    <p class="text-xs line-clamp-1">
+                        <span class="opacity-60">Read by</span> {{ book.narrator }}
+                    </p>
+                {% endif %}
+                <p class="mt-1 text-xs opacity-60">
+                    {{ book.year or "" }}{% if book.year and book.hours %} · {% endif %}{% if book.hours %}{{ book.hours }}h{% endif %}
+                </p>
+            </a>
+        {% endfor %}
+    </div>
+
+    {% if result.pages > 1 and not query %}
+        <div class="join self-center">
+            <a class="join-item btn btn-sm {% if result.page == 0 %}btn-disabled{% endif %}"
+               href="{{ base_url }}/library?page={{ result.page - 1 }}">«</a>
+            <span class="join-item btn btn-sm pointer-events-none">Page {{ result.page + 1 }} of {{ result.pages }}</span>
+            <a class="join-item btn btn-sm {% if result.page + 1 >= result.pages %}btn-disabled{% endif %}"
+               href="{{ base_url }}/library?page={{ result.page + 1 }}">»</a>
+        </div>
+    {% endif %}
+</div>
+</BaseLayout>

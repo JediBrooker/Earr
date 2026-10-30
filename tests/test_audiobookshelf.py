@@ -209,3 +209,85 @@ class TestMissingMetadata:
         )
 
         assert patch == {"narrators": ["Jane Reader"], "publishedYear": "2021"}
+
+
+class TestLibraryPage:
+    async def test_lists_the_audiobookshelf_library(
+        self, client: TestClient, session: Session, serve: Any
+    ):
+        fake = FakeABS()
+        fake.items = [
+            item("li_1", "The Way of Kings", narratorName="Michael Kramer", seriesName="Stormlight #1"),
+            item("li_2", "Words of Radiance"),
+        ]
+        await connect(session, serve, fake)
+        session.add(create_user("reader", "reader-password", GroupEnum.untrusted))
+        session.commit()
+
+        # off the event loop, so the fake Audiobookshelf on it can answer
+        response = await asyncio.to_thread(
+            lambda: client.get("/library", auth=("reader", "reader-password"))
+        )
+
+        assert response.status_code == 200, response.text
+        page = response.text
+        assert "2 books in Audiobookshelf" in page
+        assert "Words of Radiance" in page
+        assert "Stormlight #1" in page
+        assert "/library/cover/li_1" in page, "covers come through Earr"
+
+    async def test_search_uses_audiobookshelf_search(
+        self, client: TestClient, session: Session, serve: Any
+    ):
+        fake = FakeABS()
+        fake.items = [item("li_1", "The Way of Kings"), item("li_2", "Words of Radiance")]
+        await connect(session, serve, fake)
+        session.add(create_user("reader", "reader-password", GroupEnum.untrusted))
+        session.commit()
+
+        response = await asyncio.to_thread(
+            lambda: client.get(
+                "/library", params={"q": "radiance"}, auth=("reader", "reader-password")
+            )
+        )
+
+        assert "Words of Radiance" in response.text
+        assert "The Way of Kings" not in response.text
+        assert "Michael Kramer" in response.text, "search results' narrators are read too"
+
+    async def test_covers_are_fetched_through_earr(
+        self, client: TestClient, session: Session, serve: Any
+    ):
+        await connect(session, serve, FakeABS())
+        session.add(create_user("reader", "reader-password", GroupEnum.untrusted))
+        session.commit()
+
+        cover = await asyncio.to_thread(
+            lambda: client.get("/library/cover/li_1", auth=("reader", "reader-password"))
+        )
+        bad = await asyncio.to_thread(
+            lambda: client.get(
+                "/library/cover/..%2F..%2Fetc", auth=("reader", "reader-password")
+            )
+        )
+
+        assert cover.status_code == 200
+        assert cover.headers["content-type"] == "image/png"
+        assert bad.status_code == 404
+
+    def test_without_audiobookshelf_it_shows_what_earr_placed(
+        self, client: TestClient, session: Session
+    ):
+        session.add(create_user("reader", "reader-password", GroupEnum.untrusted))
+        session.add(standalone_book("B1", download_status=DownloadStatusEnum.downloaded))
+        session.add(
+            series_book("B2", downloaded=True, download_status=DownloadStatusEnum.grabbed)
+        )
+        session.commit()
+
+        response = client.get("/library", auth=("reader", "reader-password"))
+
+        assert "The Martian" in response.text
+        assert "The Way of Kings" not in response.text, "still downloading"
+        assert "Connect Audiobookshelf" in response.text
+

@@ -5,6 +5,7 @@ from . import (
     auth,
     index,
     init,
+    library,
     login,
     recommendations,
     request,
@@ -21,6 +22,7 @@ router.include_router(activity.router)
 router.include_router(auth.router)
 router.include_router(index.router)
 router.include_router(init.router)
+router.include_router(library.router)
 router.include_router(login.router)
 router.include_router(recommendations.router)
 router.include_router(request.router)
