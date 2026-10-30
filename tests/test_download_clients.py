@@ -18,27 +18,6 @@ from app.internal.download_clients.sabnzbd import SabnzbdClient
 HASH = "abc123def456abc123def456abc123def456abcd"
 
 
-@pytest.fixture
-async def serve() -> Any:
-    """Starts a throwaway aiohttp server and returns its base url."""
-    servers: list[Any] = []
-
-    async def _start(routes: list[Any]) -> str:
-        app = web.Application()
-        app.add_routes(routes)
-        runner = web.AppRunner(app)
-        await runner.setup()
-        site = web.TCPSite(runner, "127.0.0.1", 0)
-        await site.start()
-        servers.append(runner)
-        port = runner.addresses[0][1]
-        return f"http://127.0.0.1:{port}"
-
-    yield _start
-    for runner in servers:
-        await runner.cleanup()
-
-
 CATEGORY_CALLS: list[dict[str, str]] = []
 
 

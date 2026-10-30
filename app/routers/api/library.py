@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, col, desc, select
 
 from app.internal.audiobookshelf.client import background_abs_trigger_scan
+from app.internal.audiobookshelf.handoff import background_add_to_audiobookshelf
 from app.internal.audiobookshelf.config import abs_config
 from app.internal.auth.authentication import AnyAuth, DetailedUser
 from app.internal.download_clients.config import download_client_config
@@ -179,7 +180,9 @@ def import_download(
             replacements,
         )
 
-    if abs_config.is_valid(session):
-        background_task.add_task(background_abs_trigger_scan)
+    if abs_config.is_connected(session):
+        background_task.add_task(
+            background_add_to_audiobookshelf, [(str(target_dir), body.asin_or_uuid)]
+        )
 
     return ImportResult(target_path=str(target_dir))

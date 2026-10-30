@@ -1,3 +1,4 @@
+import uuid
 from typing import Literal, Sequence, cast
 
 from pydantic import BaseModel
@@ -12,6 +13,16 @@ from app.internal.models import (
     ManualBookRequest,
     User,
 )
+
+
+def get_book(
+    session: Session, asin_or_uuid: str
+) -> Audiobook | ManualBookRequest | None:
+    """An Audible book by ASIN, or a manual request by its UUID."""
+    try:
+        return session.get(ManualBookRequest, uuid.UUID(asin_or_uuid))
+    except ValueError:
+        return session.get(Audiobook, asin_or_uuid)
 
 
 class WishlistCounts(BaseModel):

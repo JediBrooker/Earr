@@ -18,6 +18,18 @@ ABSConfigKey = Literal[
 
 
 class ABSConfig(StringConfigCache[ABSConfigKey]):
+    def is_connected(self, session: Session) -> bool:
+        """Enough is set to talk to Audiobookshelf.
+
+        Unlike `is_valid`, this doesn't depend on marking existing books in
+        search being switched on, which is a separate feature.
+        """
+        return (
+            self.get_base_url(session) is not None
+            and self.get_api_token(session) is not None
+            and self.get_library_id(session) is not None
+        )
+
     def is_valid(self, session: Session) -> bool:
         return (
             self.get_base_url(session) is not None
