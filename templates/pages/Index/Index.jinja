@@ -6,12 +6,12 @@
 #}
 
 <BaseLayout title="Earr" user={{ user }}>
-<div class="w-screen flex flex-col items-center justify-center p-6 sm:p-8 overflow-x-hidden gap-6">
+<div class="w-full flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8 gap-6">
     <!-- Welcome Header -->
     <div class="w-full max-w-7xl">
         <div class="flex justify-between items-center mb-4 w-full">
             <div class="min-w-0 flex-1 mr-4">
-                <h1 class="text-4xl font-bold text-left truncate"
+                <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-left truncate"
                     title="{{ user.username }}">
                     Welcome, {{ user.username }}!
                 </h1>

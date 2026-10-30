@@ -3,25 +3,122 @@
 @source not "./daisyui{,*}.mjs";
 
 @plugin "./daisyui.mjs" {
-  themes: nord --default, night --prefersdark;
+  themes: false;
 }
 
-@plugin "./daisyui-theme.mjs" {}
+/* Earr's own themes. Cool neutral greys with an indigo primary and a teal
+   secondary; flat surfaces separated by hairline borders rather than shadows. */
+@plugin "./daisyui-theme.mjs" {
+  name: "earr-light";
+  default: true;
+  prefersdark: false;
+  color-scheme: light;
+  --color-base-100: #ffffff;
+  --color-base-200: #f4f5f8;
+  --color-base-300: #e4e7ec;
+  --color-base-content: #161a23;
+  --color-primary: #4f46e5;
+  --color-primary-content: #ffffff;
+  --color-secondary: #0f766e;
+  --color-secondary-content: #ffffff;
+  --color-accent: #c026d3;
+  --color-accent-content: #ffffff;
+  --color-neutral: #1f2430;
+  --color-neutral-content: #f4f5f8;
+  --color-info: #0369a1;
+  --color-info-content: #ffffff;
+  --color-success: #15803d;
+  --color-success-content: #ffffff;
+  --color-warning: #b45309;
+  --color-warning-content: #ffffff;
+  --color-error: #dc2626;
+  --color-error-content: #ffffff;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.875rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+@plugin "./daisyui-theme.mjs" {
+  name: "earr-dark";
+  default: false;
+  prefersdark: true;
+  color-scheme: dark;
+  --color-base-100: #14161b;
+  --color-base-200: #0e1014;
+  --color-base-300: #08090c;
+  --color-base-content: #e3e6ec;
+  --color-primary: #8b93ff;
+  --color-primary-content: #14123a;
+  --color-secondary: #2dd4bf;
+  --color-secondary-content: #04201d;
+  --color-accent: #e879f9;
+  --color-accent-content: #3b0a40;
+  --color-neutral: #2a2f3a;
+  --color-neutral-content: #e3e6ec;
+  --color-info: #38bdf8;
+  --color-info-content: #04223a;
+  --color-success: #4ade80;
+  --color-success-content: #052e16;
+  --color-warning: #fbbf24;
+  --color-warning-content: #3a2503;
+  --color-error: #f87171;
+  --color-error-content: #3f0909;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.875rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
 
 /* Enables dark mode specific styling with "dark:" */
 @custom-variant dark (&:where(.dark, .dark *));
 
 
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 .error-alert {
-  @apply !bg-error;
+  @apply !bg-error !text-error-content;
 }
 
 .success-alert {
-  @apply !bg-success;
+  @apply !bg-success !text-success-content;
 }
 
 .info-alert {
-  @apply !bg-info;
+  @apply !bg-info !text-info-content;
+}
+
+/* Sidebar navigation, laid out like the other *arr apps */
+.sidebar-menu svg {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex: none;
+}
+
+.sidebar-menu li > a {
+  @apply py-2;
+}
+
+.sidebar-menu li > a.menu-active {
+  background-color: color-mix(in oklab, var(--color-primary) 14%, transparent);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* a section whose page is open in its submenu is marked by the submenu */
+.sidebar-menu li > a.menu-parent-active {
+  font-weight: 600;
 }
 
 .slider-round {

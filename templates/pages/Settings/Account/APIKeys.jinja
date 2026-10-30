@@ -29,7 +29,7 @@
     <h2 class="text-lg mb-2">
         API Keys
     </h2>
-    <p class="text-sm text-gray-600 mb-4">
+    <p class="text-sm text-base-content/70 mb-4">
         API keys allow external applications to access your account.
     </p>
     <form id="create-api-key-form"
@@ -48,7 +48,7 @@
         </div>
     </form>
     {% if show_api_key %}
-        <div class="card mb-4 shadow-sm dark:border dark:border-gray-700">
+        <div class="card mb-4 border border-base-content/10">
             <div class="flex flex-col card-body gap-2">
                 <p>
                     <strong>Your new API key:</strong>
@@ -174,7 +174,7 @@
             </table>
         </div>
     {% else %}
-        <p class="text-gray-600">
+        <p class="text-base-content/70">
             No API keys created yet.
         </p>
     {% endif %}

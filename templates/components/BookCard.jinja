@@ -31,7 +31,7 @@
             <icons.PhotoOff />
         {% endif %}
         <!-- Request Button -->
-        <button class="absolute top-0 right-0 rounded-none rounded-bl-md btn-sm btn btn-square items-center justify-center flex {% if book.downloaded or already_requested %}btn-ghost bg-success text-neutral/20{% else %}btn-info{% endif %}"
+        <button class="absolute top-0 right-0 rounded-none rounded-bl-md btn-sm btn btn-square items-center justify-center flex {% if book.downloaded or already_requested %}btn-ghost bg-success text-neutral/20{% else %}btn-primary{% endif %}"
                 hx-post="{{ base_url }}/request/hx-add/{{ book.asin }}"
                 hx-vals='{"region": "{{ region }}"}'
                 hx-disabled-elt="this"
@@ -76,8 +76,9 @@
             {{ series_label }}
         </div>
     {% endif %}
-    {# Audible subtitles are often just "<series>, Book 1", which the series line already says #}
-    {% if book.subtitle and not (book.series and book.series | lower in book.subtitle | lower) %}
+    {# Audible subtitles are often just "<series>, Book 1" or the series name alone, which the series line already says #}
+    {% set repeats_series = book.series and book.subtitle and (book.series | lower in book.subtitle | lower or book.subtitle | lower in book.series | lower) %}
+    {% if book.subtitle and not repeats_series %}
         <div class="opacity-60 font-semibold text-xs line-clamp-1"
              title="{{ book.subtitle }}">
             {{ book.subtitle }}
