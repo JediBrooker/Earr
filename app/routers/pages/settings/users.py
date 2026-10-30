@@ -1,12 +1,14 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Security
+from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.internal.auth.authentication import EarrAuth, DetailedUser
 from app.internal.auth.config import auth_config
 from app.internal.auth.login_types import LoginTypeEnum
 from app.internal.models import GroupEnum, User
+from app.internal.request_limits import LimitPeriod, request_limit_config
 from app.routers.api.users import (
     UserCreate,
     UserUpdate,
@@ -22,7 +24,7 @@ from app.routers.api.users import (
 )
 from app.util.db import get_session
 from app.util.templates import catalog_response, catalog_response_toast
-from app.util.toast import ToastException
+from app.util.toast import ToastException, toast_response
 
 router = APIRouter(prefix="/users")
 
@@ -40,7 +42,57 @@ def read_users(
         user=admin_user,
         users=users,
         is_oidc=is_oidc,
+        limits=RequestLimitSettings(
+            untrusted=request_limit_config.get_group_limit(
+                session, GroupEnum.untrusted
+            ),
+            trusted=request_limit_config.get_group_limit(session, GroupEnum.trusted),
+            period=request_limit_config.get_period(session).value,
+        ),
     )
+
+
+class RequestLimitSettings(BaseModel):
+    untrusted: int
+    trusted: int
+    period: str
+
+
+@router.post("/hx-limits")
+def update_limits(
+    session: Annotated[Session, Depends(get_session)],
+    _: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
+    untrusted: Annotated[int, Form()] = 0,
+    trusted: Annotated[int, Form()] = 0,
+    period: Annotated[LimitPeriod, Form()] = LimitPeriod.week,
+):
+    request_limit_config.set_group_limit(session, GroupEnum.untrusted, untrusted)
+    request_limit_config.set_group_limit(session, GroupEnum.trusted, trusted)
+    request_limit_config.set_period(session, period)
+    return toast_response("Request limits saved")
+
+
+@router.patch("/hx-limit/{username}")
+def update_user_limit(
+    username: str,
+    session: Annotated[Session, Depends(get_session)],
+    _: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
+    request_limit: Annotated[str, Form()] = "",
+):
+    target = session.get(User, username)
+    if target is None:
+        raise HTTPException(status_code=404, detail="No such user")
+    value = request_limit.strip()
+    if value and not value.isdigit():
+        return toast_response("Enter a number, or leave it empty", "error")
+    target.request_limit = int(value) if value else None
+    session.add(target)
+    session.commit()
+    if target.request_limit is None:
+        return toast_response(f"{username} uses their group's limit")
+    if target.request_limit == 0:
+        return toast_response(f"{username} has no request limit")
+    return toast_response(f"{username} may request {target.request_limit} per period")
 
 
 @router.post("/hx-add")

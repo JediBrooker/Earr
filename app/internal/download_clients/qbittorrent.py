@@ -183,20 +183,40 @@ class QBittorrentClient(DownloadClient):
             return False
 
     @override
-    async def find(
+    async def remove(
         self,
         client_session: ClientSession,
         *,
         client_id: str | None = None,
         name: str | None = None,
-    ) -> DownloadInfo | None:
+        delete_files: bool = True,
+    ) -> bool:
+        torrent_hash = client_id
+        if not torrent_hash:
+            torrents = await self._list(client_session, {})
+            match = self._pick(torrents or [], None, name)
+            torrent_hash = _s(match, "hash") if match else None
+        if not torrent_hash or not await self._login(client_session):
+            return False
+        try:
+            async with client_session.post(
+                self._url("torrents/delete"),
+                data={
+                    "hashes": torrent_hash.lower(),
+                    "deleteFiles": "true" if delete_files else "false",
+                },
+                headers=self._headers(),
+            ) as response:
+                return response.ok
+        except Exception as e:
+            logger.warning("qBittorrent: remove failed", error=str(e))
+            return False
+
+    async def _list(
+        self, client_session: ClientSession, params: dict[str, str]
+    ) -> list[JsonObject] | None:
         if not await self._login(client_session):
             return None
-
-        params: dict[str, str] = {}
-        if client_id:
-            params["hashes"] = client_id.lower()
-
         try:
             async with client_session.get(
                 self._url("torrents/info"), params=params, headers=self._headers()
@@ -206,9 +226,25 @@ class QBittorrentClient(DownloadClient):
                         "qBittorrent: could not list torrents", status=response.status
                     )
                     return None
-                torrents = cast(list[JsonObject], await response.json())
+                return cast(list[JsonObject], await response.json())
         except Exception as e:
             logger.warning("qBittorrent: request failed", error=str(e))
+            return None
+
+    @override
+    async def find(
+        self,
+        client_session: ClientSession,
+        *,
+        client_id: str | None = None,
+        name: str | None = None,
+    ) -> DownloadInfo | None:
+        params: dict[str, str] = {}
+        if client_id:
+            params["hashes"] = client_id.lower()
+
+        torrents = await self._list(client_session, params)
+        if torrents is None:
             return None
 
         match = self._pick(torrents, client_id, name)

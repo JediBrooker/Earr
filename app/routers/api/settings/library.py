@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 from aiohttp import ClientSession
 from fastapi import APIRouter, Depends, HTTPException, Response, Security
@@ -6,7 +6,13 @@ from pydantic import BaseModel
 from sqlmodel import Session
 
 from app.internal.auth.authentication import AnyAuth, DetailedUser
-from app.internal.download_clients.config import download_client_config
+from app.internal.download_clients.config import (
+    CLIENT_NAMES,
+    TORRENT_CLIENTS,
+    USENET_CLIENTS,
+    ClientId,
+    download_client_config,
+)
 from app.internal.library.config import MIN_SCAN_INTERVAL, library_config
 from app.internal.library.naming import (
     TEMPLATE_EXAMPLES,
@@ -22,19 +28,33 @@ from app.util.db import get_session
 router = APIRouter(prefix="/library")
 
 
+class ClientSettings(BaseModel):
+    id: ClientId
+    name: str
+    protocol: Literal["torrent", "usenet"]
+    enabled: bool
+    url: str
+    username: str
+    secret_set: bool
+    """Whether a password (an API key for SABnzbd) is stored. It is never sent back."""
+    category: str
+    categories: list[str] = []
+    """What the client offers. Empty when it is unreachable or off."""
+
+    @property
+    def has_username(self) -> bool:
+        return self.id not in ("sab", "deluge")
+
+    @property
+    def secret_label(self) -> str:
+        return "API key" if self.id == "sab" else "password"
+
+
 class DownloadClientSettings(BaseModel):
-    qbit_enabled: bool
-    qbit_url: str
-    qbit_username: str
-    qbit_password_set: bool
-    qbit_category: str
-    qbit_categories: list[str] = []
-    """What the client offers. Empty when it is unreachable."""
-    sab_enabled: bool
-    sab_url: str
-    sab_api_key_set: bool
-    sab_category: str
-    sab_categories: list[str] = []
+    clients: list[ClientSettings]
+
+    def get(self, client_id: ClientId) -> ClientSettings:
+        return next(c for c in self.clients if c.id == client_id)
 
 
 class LibrarySettings(BaseModel):
@@ -64,16 +84,26 @@ def read_settings(session: Session) -> LibrarySettings:
         overwrite=library_config.get_overwrite(session),
         write_metadata=library_config.get_write_metadata(session),
         download_clients=DownloadClientSettings(
-            qbit_enabled=download_client_config.get_qbit_enabled(session),
-            qbit_url=download_client_config.get_qbit_url(session) or "",
-            qbit_username=download_client_config.get_qbit_username(session),
-            # never send secrets back out, only whether one is stored
-            qbit_password_set=bool(download_client_config.get_qbit_password(session)),
-            qbit_category=download_client_config.get_qbit_category(session),
-            sab_enabled=download_client_config.get_sab_enabled(session),
-            sab_url=download_client_config.get_sab_url(session) or "",
-            sab_api_key_set=bool(download_client_config.get_sab_api_key(session)),
-            sab_category=download_client_config.get_sab_category(session),
+            clients=[
+                ClientSettings(
+                    id=client_id,
+                    name=CLIENT_NAMES[client_id],
+                    protocol="torrent" if client_id in TORRENT_CLIENTS else "usenet",
+                    enabled=download_client_config.get_enabled(session, client_id),
+                    url=download_client_config.get_field(session, client_id, "url"),
+                    username=download_client_config.get_field(
+                        session, client_id, "username"
+                    ),
+                    # never send secrets back out, only whether one is stored
+                    secret_set=bool(
+                        download_client_config.get_field(session, client_id, "password")
+                    ),
+                    category=download_client_config.get_field(
+                        session, client_id, "category"
+                    ),
+                )
+                for client_id in (*TORRENT_CLIENTS, *USENET_CLIENTS)
+            ]
         ),
     )
 
@@ -161,18 +191,18 @@ def update_library_settings(
     return Response(status_code=204)
 
 
+class ClientUpdate(BaseModel):
+    enabled: bool = False
+    url: str = ""
+    username: str = ""
+    secret: str | None = None
+    """Password, or API key for SABnzbd. Left out to keep the stored one."""
+    category: str = ""
+
+
 class UpdateDownloadClients(BaseModel):
-    qbit_enabled: bool = False
-    qbit_url: str = ""
-    qbit_username: str = ""
-    qbit_password: str | None = None
-    """Left out to keep the stored password."""
-    qbit_category: str = ""
-    sab_enabled: bool = False
-    sab_url: str = ""
-    sab_api_key: str | None = None
-    """Left out to keep the stored key."""
-    sab_category: str = ""
+    clients: dict[ClientId, ClientUpdate]
+    """Only the clients listed are changed."""
 
 
 @router.put("/download-clients", status_code=204)
@@ -181,23 +211,25 @@ def update_download_clients(
     session: Annotated[Session, Depends(get_session)],
     _: Annotated[DetailedUser, Security(AnyAuth(GroupEnum.admin))],
 ):
-    if body.qbit_enabled and not body.qbit_url.strip():
-        raise HTTPException(status_code=422, detail="qBittorrent URL is required")
-    if body.sab_enabled and not body.sab_url.strip():
-        raise HTTPException(status_code=422, detail="SABnzbd URL is required")
+    for client_id, update in body.clients.items():
+        if update.enabled and not update.url.strip():
+            raise HTTPException(
+                status_code=422, detail=f"{CLIENT_NAMES[client_id]} URL is required"
+            )
 
-    download_client_config.set_qbit_enabled(session, body.qbit_enabled)
-    download_client_config.set_qbit_url(session, body.qbit_url)
-    download_client_config.set_qbit_username(session, body.qbit_username)
-    download_client_config.set_qbit_category(session, body.qbit_category)
-    if body.qbit_password is not None:
-        download_client_config.set_qbit_password(session, body.qbit_password)
-
-    download_client_config.set_sab_enabled(session, body.sab_enabled)
-    download_client_config.set_sab_url(session, body.sab_url)
-    download_client_config.set_sab_category(session, body.sab_category)
-    if body.sab_api_key is not None:
-        download_client_config.set_sab_api_key(session, body.sab_api_key)
+    for client_id, update in body.clients.items():
+        download_client_config.set_enabled(session, client_id, update.enabled)
+        download_client_config.set_field(session, client_id, "url", update.url)
+        download_client_config.set_field(
+            session, client_id, "username", update.username
+        )
+        download_client_config.set_field(
+            session, client_id, "category", update.category
+        )
+        if update.secret is not None:
+            download_client_config.set_field(
+                session, client_id, "password", update.secret
+            )
 
     return Response(status_code=204)
 

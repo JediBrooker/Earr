@@ -52,6 +52,10 @@
                         <th>
                             Time left
                         </th>
+                        {% if user.is_admin() %}
+                            <th>
+                            </th>
+                        {% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -112,6 +116,26 @@
                             <td class="text-sm">
                                 {{ item.eta_label }}
                             </td>
+                            {% if user.is_admin() %}
+                                <td>
+                                    <div class="flex justify-end gap-1">
+                                        <button class="btn btn-ghost btn-xs"
+                                                title="Delete the download and its files"
+                                                hx-post="{{ base_url }}/activity/{{ item.id }}/hx-remove"
+                                                hx-swap="none"
+                                                hx-confirm="Remove this download and delete its files?">
+                                            Remove
+                                        </button>
+                                        <button class="btn btn-ghost btn-xs text-error"
+                                                title="Delete it, never grab this release again, and look for another"
+                                                hx-post="{{ base_url }}/activity/{{ item.id }}/hx-remove?blocklist=true"
+                                                hx-swap="none"
+                                                hx-confirm="Remove this download, delete its files, and never grab this release again? Earr then looks for another release.">
+                                            Blocklist
+                                        </button>
+                                    </div>
+                                </td>
+                            {% endif %}
                         </tr>
                     {% endfor %}
                 </tbody>

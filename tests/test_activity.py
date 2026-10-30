@@ -38,6 +38,7 @@ class FakeClient(DownloadClient):
     def __init__(self, info: DownloadInfo | None):
         self.info: DownloadInfo | None = info
         self.lookups: list[tuple[str | None, str | None]] = []
+        self.removed: list[tuple[str | None, str | None]] = []
 
     @override
     async def test(self, client_session: ClientSession) -> tuple[bool, str]:
@@ -56,6 +57,18 @@ class FakeClient(DownloadClient):
         client_id: str | None = None,
         name: str | None = None,
     ) -> bool:
+        return True
+
+    @override
+    async def remove(
+        self,
+        client_session: ClientSession,
+        *,
+        client_id: str | None = None,
+        name: str | None = None,
+        delete_files: bool = True,
+    ) -> bool:
+        self.removed.append((client_id, name))
         return True
 
     @override
@@ -79,10 +92,14 @@ def _fresh_report() -> Iterator[None]:
 
 def with_client(info: DownloadInfo | None) -> tuple[FakeClient, object]:
     fake = FakeClient(info)
-    patches = mock.patch.multiple(
+    patches = mock.patch.object(
         download_client_config,
-        build_qbit=mock.Mock(return_value=fake),
-        build_sab=mock.Mock(return_value=None),
+        "clients_for",
+        new=mock.Mock(
+            side_effect=lambda _session, protocol: (  # pyright: ignore[reportUnknownLambdaType]
+                [fake] if protocol in (None, "torrent") else []
+            )
+        ),
     )
     return fake, patches
 

@@ -9,7 +9,7 @@ checks talk to other services.
 import asyncio
 import os
 import time
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Coroutine
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
@@ -21,7 +21,13 @@ from sqlmodel import Session, col, func, select
 from app.internal.audiobookshelf.client import abs_get_libraries
 from app.internal.audiobookshelf.config import abs_config
 from app.internal.download_clients.abstract import DownloadClient
-from app.internal.download_clients.config import download_client_config
+from app.internal.download_clients.config import (
+    CLIENT_NAMES,
+    TORRENT_CLIENTS,
+    USENET_CLIENTS,
+    ClientId,
+    download_client_config,
+)
 from app.internal.library.config import library_config
 from app.internal.models import (
     Audiobook,
@@ -308,26 +314,27 @@ async def _within_time(
 
 
 async def run_checks(session: Session, client_session: ClientSession) -> HealthReport:
+    # qBittorrent and SABnzbd are listed even when off, as the usual pair; the
+    # others only once someone turns them on
+    every: tuple[ClientId, ...] = (*TORRENT_CLIENTS, *USENET_CLIENTS)
+    client_checks: list[Coroutine[object, object, HealthCheck]] = []
+    for client_id in every:
+        client = download_client_config.build(session, client_id)
+        if client is None and client_id not in ("qbit", "sab"):
+            continue
+        name = CLIENT_NAMES[client_id]
+        client_checks.append(
+            _within_time(
+                name,
+                "/settings/library",
+                _download_client(name, client, client_session),
+            )
+        )
     remote = await asyncio.gather(
         _within_time(
             "Prowlarr", "/settings/prowlarr", _prowlarr(session, client_session)
         ),
-        _within_time(
-            "qBittorrent",
-            "/settings/library",
-            _download_client(
-                "qBittorrent",
-                download_client_config.build_qbit(session),
-                client_session,
-            ),
-        ),
-        _within_time(
-            "SABnzbd",
-            "/settings/library",
-            _download_client(
-                "SABnzbd", download_client_config.build_sab(session), client_session
-            ),
-        ),
+        *client_checks,
         _within_time(
             "Audiobookshelf",
             "/settings/audiobookshelf",

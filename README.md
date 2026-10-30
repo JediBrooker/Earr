@@ -4,8 +4,8 @@
 
 <p align="center">
   <a href="https://github.com/JediBrooker/Earr/actions/workflows/build.yaml"><img alt="Build" src="https://github.com/JediBrooker/Earr/actions/workflows/build.yaml/badge.svg?branch=main"></a>
-  <a href="https://github.com/JediBrooker/Earr/pkgs/container/earr"><img alt="Image: ghcr.io/jedibrooker/earr" src="https://img.shields.io/badge/image-ghcr.io%2Fjedibrooker%2Fearr-2496ED?logo=docker&logoColor=white"></a>
-  <a href="LICENSE"><img alt="License: GPL-3.0" src="https://img.shields.io/github/license/JediBrooker/Earr"></a>
+  <a href="https://github.com/JediBrooker/Earr/pkgs/container/earr"><img alt="Image: ghcr.io/jedibrooker/earr" src="media/badges/image.svg"></a>
+  <a href="LICENSE"><img alt="License: GPL-3.0" src="media/badges/license.svg"></a>
 </p>
 
 Earr is a request app for audiobooks, in the spirit of Overseerr and Jellyseerr. Everyone in your household
@@ -31,6 +31,14 @@ It is a fork of [AudioBookRequest](https://github.com/markbeep/AudioBookRequest)
 - **Faster Audiobookshelf hand-off:** a new book is added by scanning just its folder, and empty metadata is filled in.
 - **Clearer search results:** cards show the series, narrators, year and length, and whether a book is already
   requested, downloading or in the library.
+- **Following authors and series:** new books are requested automatically as soon as Audible lists them.
+- **Pre-orders and a calendar:** request a book before it's out, and it's searched for on its release day.
+- **Book pages:** the description, the whole series in reading order with what you have, and more by the author.
+- **Blocklist:** a release that failed or was removed is never grabbed again, and the next best one is tried.
+- **Languages:** releases in a language you don't want are never downloaded automatically.
+- **Transmission, Deluge and NZBGet**, alongside qBittorrent and SABnzbd.
+- **Request limits** per group or per person, and **sign in with Audiobookshelf** accounts.
+- **Backups and logs** on the System page.
 - A Sonarr-style layout, a test suite, and images published to GitHub Container Registry on every push.
 
 ## Screenshots
@@ -71,11 +79,36 @@ It is a fork of [AudioBookRequest](https://github.com/markbeep/AudioBookRequest)
   <tr>
     <td width="50%">
       <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="media/screenshots/book-dark.png">
+        <img alt="Book page with the series in reading order" src="media/screenshots/book-light.png">
+      </picture>
+      <p align="center"><b>Book</b>: the series in order, and what you have of it</p>
+    </td>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="media/screenshots/following-dark.png">
+        <img alt="Followed authors and series" src="media/screenshots/following-light.png">
+      </picture>
+      <p align="center"><b>Following</b>: new books requested as soon as they're listed</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="media/screenshots/calendar-dark.png">
+        <img alt="Calendar of upcoming releases" src="media/screenshots/calendar-light.png">
+      </picture>
+      <p align="center"><b>Calendar</b>: pre-orders and what just came out</p>
+    </td>
+    <td width="50%">
+      <picture>
         <source media="(prefers-color-scheme: dark)" srcset="media/screenshots/activity-dark.png">
         <img alt="Activity page with download progress" src="media/screenshots/activity-light.png">
       </picture>
       <p align="center"><b>Activity</b>: downloads on their way, with live progress</p>
     </td>
+  </tr>
+  <tr>
     <td width="50%">
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="media/screenshots/books-dark.png">
@@ -83,8 +116,6 @@ It is a fork of [AudioBookRequest](https://github.com/markbeep/AudioBookRequest)
       </picture>
       <p align="center"><b>Library</b>: what's already on the shelf</p>
     </td>
-  </tr>
-  <tr>
     <td width="50%">
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="media/screenshots/library-dark.png">
@@ -92,6 +123,8 @@ It is a fork of [AudioBookRequest](https://github.com/markbeep/AudioBookRequest)
       </picture>
       <p align="center"><b>Library settings</b>: folder structure with a live preview</p>
     </td>
+  </tr>
+  <tr>
     <td width="50%" align="center">
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="media/screenshots/mobile-dark.png">
@@ -109,6 +142,10 @@ It is a fork of [AudioBookRequest](https://github.com/markbeep/AudioBookRequest)
 - Search Audible's catalogue by title, author or narrator, in any of Audible's 11 regions, with suggestions as you type.
 - See the series and position, narrators, release year and length on every result, so you pick the right edition.
 - Request with one click. Every result says whether it's already requested, downloading or in your library.
+- Open any book for its description, the whole series in reading order with what you already have, and more by the
+  author. Request the books you're missing from a series in one go.
+- Follow an author or a series, and their new books are requested for you as soon as Audible lists them.
+- Request a book before it's out. The Calendar shows what's coming, and it's searched for on its release day.
 - Request books Audible doesn't sell, such as a LibriVox recording, with a manual request.
 - Get recommendations based on what you've requested, see what's popular on your server, and browse what's trending.
 - Follow your requests on the wishlist, and watch them download on the Activity page.
@@ -119,6 +156,8 @@ It is a fork of [AudioBookRequest](https://github.com/markbeep/AudioBookRequest)
 **For the admin**
 
 - Three groups keep it simple: untrusted users' requests wait for you, trusted users' requests download straight away.
+- Limit how many books each group, or each person, can request in a day, week or month.
+- Let everyone sign in with their Audiobookshelf account, so there are no separate Earr accounts to create.
 - Approve or decline what untrusted users ask for. An approved request downloads like a trusted user's; a declined
   one tells the requester why through your notifications.
 - Prowlarr searches all your indexers and sends grabs to the download clients you already use, torrent or usenet.
@@ -126,12 +165,16 @@ It is a fork of [AudioBookRequest](https://github.com/markbeep/AudioBookRequest)
   number of seeders, and a title or author match. If nothing clears it, nothing is grabbed.
 - The Sources page ranks every release and shows which checks it passes or fails, so you can pick one yourself.
 - Requests that haven't produced files are searched for again on a schedule, up to a number of attempts you set.
+- A release that failed, or that you remove from the queue, is blocklisted and the next best one is grabbed instead.
+- Releases that say they're in a language you don't want are never downloaded automatically.
 - Finished downloads are filed into your library: hardlinked so torrents keep seeding, or copied or moved.
-- qBittorrent and SABnzbd integration finds exactly where a grab landed, and can move it into a category.
+- qBittorrent, Transmission, Deluge, SABnzbd and NZBGet integration finds exactly where a grab landed, and can move
+  it into a category or label.
 - The Activity page shows each download's progress, speed and time left, the history of past downloads, and a manual
   import for downloads Earr couldn't match by itself.
 - The System page checks every connection and folder, including whether hardlinks can work, and a light in the
-  sidebar turns amber or red when something needs attention.
+  sidebar turns amber or red when something needs attention. It also takes daily database backups you can download
+  or restore, and shows recent log lines.
 - Audiobookshelf integration marks books you already own, adds each new book by scanning just its folder, and fills
   in metadata it's missing.
 - Notifications to any webhook: Apprise, Gotify, Discord, ntfy and so on.
@@ -142,9 +185,8 @@ It is a fork of [AudioBookRequest](https://github.com/markbeep/AudioBookRequest)
 
 Earr doesn't rename audio files, edit their tags, or split, join or re-encode them. The folder it files a book into
 is named after the book, and everything inside is left as it was downloaded. Audiobookshelf reads the `metadata.json`
-Earr writes, so messy file names still end up with the right details. Earr doesn't watch authors for new releases
-either, so it works alongside Readarr or Chaptarr rather than replacing them. For an all-in-one tool that also
-organizes files, see [Listenarr](https://github.com/Listenarrs/Listenarr).
+Earr writes, so messy file names still end up with the right details. For an all-in-one tool that also organizes
+files, see [Listenarr](https://github.com/Listenarrs/Listenarr).
 
 ## Quick start
 
@@ -214,6 +256,39 @@ A request that only untrusted users made is marked **awaiting approval** on the 
 Both work over the API too: `POST /api/requests/{asin_or_uuid}/approve`, and
 `POST /api/requests/{asin_or_uuid}/decline` with `{"reason": "..."}`.
 
+#### Request limits
+
+Under `Settings > Users`, **Request limits** caps how many books untrusted and trusted users can request per day,
+week or month. 0 means no limit, which is the default, and admins are never limited. To give one person a different
+limit, type it next to their name in the list; leave it empty to use their group's. Someone at their limit is told
+when they can request again, and the book page shows how many requests they have left. Books requested because
+someone follows an author or series don't count.
+
+### Following authors and series
+
+Open a book and choose **Follow author** or **Follow series**, or search for one under **Following** in the sidebar.
+Earr checks Audible twice a day, and requests each new book for you as soon as it's listed, in your name: an
+untrusted user's still waits for approval. **Check now** looks straight away.
+
+What counts as new:
+
+- Books already out when you follow are left alone. Announced books that aren't out yet are requested straight away.
+- Only books in your preferred languages (see [Languages](#languages)), and not abridged editions or full-cast
+  adaptations split into parts.
+- A book you already have or asked for under another edition isn't requested again.
+
+To catch up on a series you started late, open any book in it and use **Request N missing**, which requests every book
+in the series that nobody has asked for and isn't in the library.
+
+#### Pre-orders and the calendar
+
+A book that isn't out yet can be requested like any other: its button says **Pre-order**. Nothing is searched for until
+its release day, when Earr looks for it once an hour until a release is found, even if **Keep searching for outstanding
+requests** is off. Regular re-searching takes over from there.
+
+**Calendar** in the sidebar lists requested books by release date: what's coming up, and what came out in the last 30
+days. Admins see everyone's, everyone else their own.
+
 ### Prowlarr and automatic downloads
 
 1. In Prowlarr, copy the API key from `Settings > General`.
@@ -229,12 +304,25 @@ Both work over the API too: `POST /api/requests/{asin_or_uuid}/approve`, and
    - **Keep searching for outstanding requests** searches again for requests that haven't produced files, including
      grabs that stalled. It only covers requests from trusted users and admins, runs every **Retry every** seconds
      (6 hours by default), and stops after **Give up after** attempts.
+   - **Languages** are the languages you want books in. See [Languages](#languages).
 4. MyAnonamouse users can add their session ID under `Settings > Indexers`. Earr then reads authors, narrators, file
    type and freeleech status from MyAnonamouse, which makes matching more accurate.
 
-A release is only downloaded automatically when it is in the bitrate range for its format, has enough seeders, and
-matches the title or at least one author or narrator. When nothing qualifies, nothing is grabbed and the book stays on
-the wishlist for you to look at.
+A release is only downloaded automatically when it is in the bitrate range for its format, has enough seeders,
+matches the title or at least one author or narrator, isn't blocklisted, and isn't in a language you don't want. When
+nothing qualifies, nothing is grabbed and the book stays on the wishlist for you to look at.
+
+#### Languages
+
+Audible lists every edition it sells, so the US store has Spanish and German editions too, and an indexer can have a
+translation whose title matches. Under `Settings > Download`, tick the languages you want; it starts as the language of
+your Audible region.
+
+- A release whose name says it's in another language, such as `[GER]`, `Deutsch` or `(Spanish)`, is never downloaded
+  automatically. One that doesn't say is given the benefit of the doubt.
+- A book you deliberately request in another language is downloaded in that language.
+- Following an author only requests books in your languages, and book pages leave other languages out of the series
+  and "more by" lists.
 
 #### How sources are ranked
 
@@ -252,8 +340,9 @@ compared on, in order:
 9. seeders
 10. age: older torrents and newer usenet posts first
 
-Each release shows a **meets settings** or **fails settings** badge, followed by its checks: the title match, authors,
-narrators, format and bitrate, seeders and any scored flags. A red ✗ is the reason a release is never downloaded
+Each release shows a **meets settings** or **fails settings** badge, followed by its checks: whether it's blocklisted,
+its language when the name gives one, the title match, authors, narrators, format and bitrate, seeders and any scored
+flags. A red ✗ is the reason a release is never downloaded
 automatically. A grey ✗ only lowers its rank. Hover over a check for details. You can still send any release to the
 download client by hand.
 
@@ -267,12 +356,18 @@ in your completed downloads folder. That fails when the client renames the folde
 `Settings > Library > Download clients` you can add:
 
 - **qBittorrent**: URL, username and password. Torrents are looked up by their info hash, so the match is exact.
+- **Transmission**: URL, and username and password if RPC authentication is on. Looked up by info hash.
+- **Deluge**: the Web UI's URL and password. Earr connects the Web UI to its daemon if it isn't already. Looked up by
+  info hash.
 - **SABnzbd**: URL and API key. Jobs are matched by name in the queue and history.
+- **NZBGet**: URL, username and password. Matched by name, like SABnzbd.
 
-Pick a **category** for each client to move Earr's grabs into. Prowlarr chooses the category when it sends a release
-and can't be told otherwise, so Earr changes it afterwards. The category has to exist in the client already, because
-its save path is what makes it useful: in qBittorrent with Automatic Torrent Management on, changing the category
-moves the files. **Test connection** checks both clients.
+Turn on the ones Prowlarr sends grabs to. Pick a **category** for each client to move Earr's grabs into. Prowlarr
+chooses the category when it sends a release and can't be told otherwise, so Earr changes it afterwards. The category
+has to exist in the client already, because its save path is what makes it useful: in qBittorrent with Automatic
+Torrent Management on, changing the category moves the files. Transmission and Deluge have labels instead (Deluge needs
+its Label plugin), which sort the downloads but don't move them, and SABnzbd and NZBGet can only recategorise a job
+that's still in the queue. **Test connection** checks every client that's turned on.
 
 ### Organizing the library
 
@@ -342,12 +437,17 @@ The Activity page follows them more closely, see [Following downloads](#followin
 
 ### Following downloads
 
-**Activity** in the sidebar has three tabs:
+**Activity** in the sidebar has four tabs:
 
-- **Queue**: every grab on its way to the library. With qBittorrent or SABnzbd set up it shows progress, size, speed
-  and time left, refreshed every few seconds. Without one, each grab waits for its files to appear in the completed
+- **Queue**: every grab on its way to the library. With a download client set up it shows progress, size, speed and
+  time left, refreshed every few seconds. Without one, each grab waits for its files to appear in the completed
   downloads folder. Earr keeps track of grabs while library organizing is on, so the queue stays empty when it's off.
+  Admins can **Remove** a download, which deletes it and its files from the client, or **Blocklist** it, which also
+  makes sure that release is never grabbed again and looks for another one straight away.
 - **History**: downloads that reached the library, failed, or never showed up.
+- **Blocklist** (admins only): releases that won't be grabbed again. A release lands here when the download client
+  reports it as failed, or when you remove it with blocklist. Automatic downloads and re-searches skip it and take the
+  next best release; the Sources page marks it, and you can still pick it by hand. **Allow again** takes it off.
 - **Manual import** (admins only): folders in the completed downloads folders that haven't been imported, usually
   because the download client renamed them. Earr preselects the request each one most likely belongs to. **Import**
   files it into the library like any other download, marks the book as in the library and sends
@@ -391,14 +491,27 @@ and opens a book in Audiobookshelf when you click it. Covers are fetched through
 reach Audiobookshelf directly. Without Audiobookshelf connected, the page lists the books Earr itself has placed in
 the library.
 
-### System status
+### System: status, backups and logs
 
-**System** in the sidebar (admins only) checks everything Earr depends on: whether Prowlarr answers and has indexers
+**System** in the sidebar (admins only) has three tabs.
+
+**Status** checks everything Earr depends on: whether Prowlarr answers and has indexers
 enabled, whether each download client and Audiobookshelf can be reached with the details you entered, whether the
 library folders exist and can be written to, and whether hardlinks can work between them. It also flags downloads
 that have waited more than a day and requests that failed. Each problem links to the page that fixes it, and the dot
 next to System turns amber or red when something needs attention. Results are reused for a minute; **Check again**
 runs the checks straight away.
+
+**Backups** copies the SQLite database, which holds every setting, user, request and follow. A backup is taken every
+day and the last 7 are kept (both adjustable); **Back up now** takes one by hand, and those are kept until you delete
+them. Backups are stored in `backups/` in the config folder and can be downloaded. **Restore** replaces everything with
+a backup, after first taking a backup of the current state so the restore can be undone; a backup from an older
+version of Earr is upgraded as it's restored. You can also upload a backup taken elsewhere. With Postgres, use
+`pg_dump` instead.
+
+**Logs** shows the most recent 2,000 log lines, newest first, filtered by level or text and refreshed live, with a
+**Download** button for the lot. They're kept in memory, so a restart clears them, and debug lines are only kept when
+`EARR_APP__LOG_LEVEL` is `DEBUG`.
 
 ### Notifications
 
@@ -478,6 +591,15 @@ time they log in.
 
 If a change on the provider's side locks you out, go to `/login?backup=1` and log in with the root admin's username
 and password to fix the settings.
+
+#### Signing in with Audiobookshelf
+
+With Audiobookshelf connected and the login type set to Forms or Basic, turn on **Sign in with Audiobookshelf** under
+`Settings > Security`. Anyone with an Audiobookshelf account can then sign in with that username and password, and
+their first sign-in creates their Earr account in the group you choose. Audiobookshelf admins can be made Earr admins
+too. The password is checked with Audiobookshelf at every sign-in (and every 15 minutes with Basic auth), so a changed
+password or a disabled account there stops working here as well. Accounts that only exist in Earr carry on as before
+and are never checked against Audiobookshelf.
 
 ### Reverse proxy
 

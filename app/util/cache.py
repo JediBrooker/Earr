@@ -37,9 +37,18 @@ class SimpleCache[VT, *KTs]:
 
 
 class StringConfigCache[L: str]:
+    _instances: "list[StringConfigCache[str]]" = []
+    """Every config, so they can all be forgotten after a database restore."""
+
     def __init__(self) -> None:
         # per instance, otherwise every config in the app shares one dict
         self._cache: dict[L, str] = {}
+        StringConfigCache._instances.append(self)  # pyright: ignore[reportArgumentType]
+
+    @classmethod
+    def forget_all(cls) -> None:
+        for instance in cls._instances:
+            instance._cache.clear()
 
     @overload
     def get(self, session: Session, key: L) -> str | None: ...

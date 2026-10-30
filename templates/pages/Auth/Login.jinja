@@ -2,6 +2,7 @@
     title: str,
     backup: bool,
     redirect_uri: str,
+    abs_login: bool = False,
 #}
 
 <BaseLayout title={{ title }} hide_navbar>
@@ -27,6 +28,11 @@
             <h1 class="text-xl">
                 Login
             </h1>
+            {% if abs_login %}
+                <p class="text-sm text-base-content/70">
+                    You can use your Audiobookshelf username and password.
+                </p>
+            {% endif %}
         {% endif %}
         <label for="username">
             Username

@@ -23,7 +23,14 @@ from pathlib import Path
 import aiohttp
 from sqlmodel import Session
 
+from app.internal import blocklist
+from app.internal.audible.catalog import (
+    get_author_products,
+    get_book_details,
+    is_main_edition,
+)
 from app.internal.audible.search import search_audible_books
+from app.internal.audible.types import AudibleContributor
 from app.internal.auth.authentication import create_user
 from app.internal.auth.config import auth_config
 from app.internal.auth.login_types import LoginTypeEnum
@@ -33,6 +40,8 @@ from app.internal.models import (
     Audiobook,
     AudiobookRequest,
     DownloadStatusEnum,
+    Follow,
+    FollowKindEnum,
     GroupEnum,
     LibraryImport,
     LibraryImportStatusEnum,
@@ -145,8 +154,28 @@ def pick(results: list[Audiobook], wanted: Wanted) -> Audiobook:
     return max(results, key=score)  # max keeps the first of equals, i.e. relevance
 
 
-async def fetch_books() -> dict[str, Audiobook]:
+FOLLOWED_AUTHORS = {
+    "alex": ["Brandon Sanderson", "Will Wight", "Adrian Tchaikovsky"],
+    "sam": ["Andy Weir", "John Scalzi", "Joe Abercrombie"],
+    "priya": ["Travis Baldree", "Rebecca Yarros", "Matt Dinniman"],
+}
+"""Who follows whom. Their announced books fill the Calendar."""
+
+
+class Followed:
+    def __init__(
+        self, username: str, author: AudibleContributor, upcoming: list[Audiobook]
+    ):
+        self.username: str = username
+        self.author: AudibleContributor = author
+        self.upcoming: list[Audiobook] = upcoming
+
+
+async def fetch_books() -> tuple[dict[str, Audiobook], list[Followed], str | None]:
+    """The wanted books, each followed author's announced books, and the
+    Stormlight Archive's series ASIN for a series follow."""
     books: dict[str, Audiobook] = {}
+    followed: list[Followed] = []
     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(30)) as client:
         for wanted in BOOKS:
             query = " ".join(
@@ -154,7 +183,36 @@ async def fetch_books() -> dict[str, Audiobook]:
             )
             results = await search_audible_books(client, query, audible_region="us")
             books[wanted.key] = pick(results, wanted)
-    return books
+
+        now = datetime.now()
+        for username, authors in FOLLOWED_AUTHORS.items():
+            for name in authors:
+                # the author's ASIN, from one of their books
+                hits = await search_audible_books(client, name, audible_region="us")
+                details = (
+                    await get_book_details(client, hits[0].asin, "us") if hits else None
+                )
+                author = next(
+                    (
+                        a
+                        for a in (details.authors if details else [])
+                        if _norm(a.name) == _norm(name)
+                    ),
+                    AudibleContributor(name=name),
+                )
+                products = await get_author_products(client, author, "us")
+                upcoming = [
+                    p.to_audiobook()
+                    for p in products
+                    if p.language == "english"
+                    and is_main_edition(p)
+                    and datetime.fromisoformat(p.release_date) > now
+                ][:2]
+                followed.append(Followed(username, author, upcoming))
+
+        details = await get_book_details(client, books["wok"].asin, "us")
+        series = details.primary_series if details else None
+    return books, followed, series.asin if series else None
 
 
 def target_folder(book: Audiobook) -> str:
@@ -163,6 +221,45 @@ def target_folder(book: Audiobook) -> str:
 
 def release_name(book: Audiobook) -> str:
     return f"{book.authors[0]} - {book.title} [M4B 64kbps]"
+
+
+def seed_follows(
+    session: Session, followed: list[Followed], series_asin: str | None
+) -> None:
+    now = datetime.now()
+    for entry in followed:
+        session.add(
+            Follow(
+                user_username=entry.username,
+                kind=FollowKindEnum.author,
+                audible_id=entry.author.asin or entry.author.name,
+                name=entry.author.name,
+                known_asins=[b.asin for b in entry.upcoming],
+                last_checked_at=now - timedelta(hours=3),
+                created_at=now - timedelta(days=30),
+            )
+        )
+        for book in entry.upcoming:
+            if session.get(Audiobook, book.asin) is None:
+                session.add(book)
+            session.add(
+                AudiobookRequest(
+                    asin=book.asin,
+                    user_username=entry.username,
+                    via_follow=entry.author.name,
+                    created_at=now - timedelta(days=2),
+                )
+            )
+    if series_asin:
+        session.add(
+            Follow(
+                user_username="alex",
+                kind=FollowKindEnum.series,
+                audible_id=series_asin,
+                name="The Stormlight Archive",
+                last_checked_at=now - timedelta(hours=3),
+            )
+        )
 
 
 def seed(session: Session, books: dict[str, Audiobook], password: str) -> None:
@@ -183,8 +280,10 @@ def seed(session: Session, books: dict[str, Audiobook], password: str) -> None:
     quality_config.set_indexer_flags(session, [IndexerFlag(flag="freeleech", score=5)])
 
     # the Prowlarr stand-in answers for qBittorrent too, so Activity shows progress
-    download_client_config.set_qbit_enabled(session, True)
-    download_client_config.set_qbit_url(session, os.environ["EARR_DEMO_PROWLARR"])
+    download_client_config.set_enabled(session, "qbit", True)
+    download_client_config.set_field(
+        session, "qbit", "url", os.environ["EARR_DEMO_PROWLARR"]
+    )
 
     library_config.set_enabled(session, True)
     library_config.set_mode(session, OrganizeModeEnum.hardlink)
@@ -206,7 +305,10 @@ def seed(session: Session, books: dict[str, Audiobook], password: str) -> None:
         for username in wanted.requested_by:
             session.add(
                 AudiobookRequest(
-                    asin=book.asin, user_username=username, updated_at=when
+                    asin=book.asin,
+                    user_username=username,
+                    updated_at=when,
+                    created_at=when,
                 )
             )
         if wanted.status is None:
@@ -227,9 +329,12 @@ def seed(session: Session, books: dict[str, Audiobook], password: str) -> None:
             entry.source_path = f"{TORRENTS}/{release_name(book)}"
             entry.target_path = target_folder(book)
         elif wanted.status == DownloadStatusEnum.failed:
-            entry.status = LibraryImportStatusEnum.expired
-            entry.error = "The download never showed up in the completed folders"
+            entry.status = LibraryImportStatusEnum.failed
+            entry.error = "qBittorrent: files missing"
         session.add(entry)
+        if wanted.status == DownloadStatusEnum.failed:
+            session.commit()
+            _ = blocklist.add_import(session, entry, entry.error)
 
     session.add(
         ManualBookRequest(
@@ -245,9 +350,11 @@ def seed(session: Session, books: dict[str, Audiobook], password: str) -> None:
 
 
 def main() -> None:
-    books = asyncio.run(fetch_books())
+    books, followed, series_asin = asyncio.run(fetch_books())
     with Session(engine) as session:
         seed(session, books, os.environ["EARR_DEMO_PASSWORD"])
+        seed_follows(session, followed, series_asin)
+        session.commit()
         summary = {
             "books": {
                 key: {
@@ -260,6 +367,7 @@ def main() -> None:
                 for key, book in books.items()
             },
             "sources_asin": books["dcc"].asin,
+            "book_asin": books["wok"].asin,
         }
     _ = Path(os.environ["EARR_DEMO_OUT"]).write_text(json.dumps(summary, indent=2))
 

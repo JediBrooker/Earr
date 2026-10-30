@@ -1,0 +1,35 @@
+{#def
+    user: DetailedUser,
+    page: str,
+    title: str = "System",
+#}
+
+<BaseLayout title={{ title }} user={{ user }}>
+<div class="mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 sm:p-6 lg:p-8">
+    <div>
+        <h1 class="text-3xl font-bold tracking-tight">
+            System
+        </h1>
+        <p class="text-sm text-base-content/70">
+            Health checks, database backups and recent log lines.
+        </p>
+    </div>
+    <div role="tablist" class="tabs tabs-box w-fit">
+        <a preload
+           href="{{ base_url }}/system/status"
+           role="tab"
+           class="tab {% if page == 'status' %}tab-active{% endif %}">Status</a>
+        <a preload
+           href="{{ base_url }}/system/backups"
+           role="tab"
+           class="tab {% if page == 'backups' %}tab-active{% endif %}">Backups</a>
+        <a preload
+           href="{{ base_url }}/system/logs"
+           role="tab"
+           class="tab {% if page == 'logs' %}tab-active{% endif %}">Logs</a>
+    </div>
+
+    {{ content }}
+
+</div>
+</BaseLayout>

@@ -1,4 +1,22 @@
+import json
 from typing import Literal, final
+
+from fastapi import Response
+
+
+def toast_response(
+    message: str, type: Literal["error", "success", "info"] = "success"
+) -> Response:
+    """An empty htmx response that only shows a toast.
+
+    Safe for text from outside, such as a book or author name: it travels as
+    JSON in a header, never as markup or script.
+    """
+    return Response(
+        headers={
+            "HX-Trigger": json.dumps({"toast": {"type": type, "message": message}})
+        }
+    )
 
 
 @final

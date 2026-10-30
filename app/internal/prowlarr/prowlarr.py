@@ -180,6 +180,8 @@ async def start_download(
                 _release_title(session, manual_book_request, guid, prowlarr_source),
                 additional_replacements.get("torrentInfoHash"),
                 prowlarr_source.protocol if prowlarr_source else None,
+                guid=guid,
+                indexer=prowlarr_source.indexer if prowlarr_source else None,
             )
             await send_all_manual_notifications(
                 EventEnum.on_grabbed,
@@ -210,6 +212,8 @@ async def start_download(
                     _release_title(session, same_books[0], guid, prowlarr_source),
                     additional_replacements.get("torrentInfoHash"),
                     prowlarr_source.protocol if prowlarr_source else None,
+                    guid=guid,
+                    indexer=prowlarr_source.indexer if prowlarr_source else None,
                 )
 
             await send_all_notifications(

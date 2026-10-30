@@ -1,0 +1,88 @@
+{#def
+    user: DetailedUser,
+    supported: bool,
+    files: list[BackupFile],
+    enabled: bool,
+    keep: int,
+    folder: str,
+#}
+
+<SystemLayout user={{ user }} page="backups" title="Backups">
+{% if not supported %}
+    <div role="alert" class="alert">
+        <span class="stroke-info h-6 w-6 shrink-0">
+            <icons.InfoCircle />
+        </span>
+        <span>Earr is using Postgres, so back it up with <code>pg_dump</code>. Backups here are for the built-in SQLite database.</span>
+    </div>
+{% else %}
+    <div class="grid gap-6 lg:grid-cols-[1fr_20rem]">
+        <section class="flex flex-col gap-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <p class="text-sm text-base-content/70">
+                    A backup is the whole database: settings, users, requests and follows.
+                </p>
+                <button class="btn btn-sm btn-primary"
+                        hx-post="{{ base_url }}/system/backups/hx-create"
+                        hx-target="#backup-list"
+                        hx-swap="outerHTML"
+                        hx-disabled-elt="this">
+                    Back up now
+                </button>
+            </div>
+            <System.BackupList files={{ files }} />
+        </section>
+        <aside class="flex flex-col gap-6">
+            <form class="flex flex-col gap-3 rounded-box border border-base-content/10 p-4"
+                  hx-post="{{ base_url }}/system/backups/hx-settings"
+                  hx-swap="none">
+                <h2 class="font-semibold">
+                    Daily backups
+                </h2>
+                <label class="flex items-center justify-between gap-2 text-sm">
+                    Take one every day
+                    <input type="checkbox"
+                           name="enabled"
+                           class="toggle toggle-sm toggle-primary"
+                           {% if enabled %}checked{% endif %} />
+                </label>
+                <label class="flex items-center justify-between gap-2 text-sm">
+                    Keep the last
+                    <input type="number"
+                           name="keep"
+                           min="1"
+                           max="90"
+                           value="{{ keep }}"
+                           class="input input-sm w-20" />
+                </label>
+                <p class="text-xs text-base-content/60">
+                    Older daily backups are deleted. Manual ones are kept until you delete them.
+                </p>
+                <button class="btn btn-sm">
+                    Save
+                </button>
+            </form>
+            <form class="flex flex-col gap-3 rounded-box border border-base-content/10 p-4"
+                  hx-post="{{ base_url }}/system/backups/hx-upload"
+                  hx-encoding="multipart/form-data"
+                  hx-target="#backup-list"
+                  hx-swap="outerHTML">
+                <h2 class="font-semibold">
+                    Upload a backup
+                </h2>
+                <input type="file"
+                       name="file"
+                       accept=".sqlite,.db"
+                       required
+                       class="file-input file-input-sm w-full" />
+                <button class="btn btn-sm">
+                    Upload
+                </button>
+            </form>
+            <p class="text-xs text-base-content/60 break-all">
+                Stored in {{ folder }}
+            </p>
+        </aside>
+    </div>
+{% endif %}
+</SystemLayout>

@@ -178,6 +178,10 @@ class Demo:
     def sources_asin(self) -> str:
         return str(self.summary["sources_asin"])
 
+    @property
+    def book_asin(self) -> str:
+        return str(self.summary["book_asin"])
+
 
 @contextmanager
 def demo_instance() -> Iterator[Demo]:
@@ -319,6 +323,9 @@ SHOTS = [
         lambda d: f"/wishlist/sources/{d.sources_asin}",
         wait_for="#sources table tbody tr",
     ),
+    Shot("book", lambda d: f"/book/{d.book_asin}", wait_for=".series-entry"),
+    Shot("following", lambda d: "/following", wait_for=".follow-row"),
+    Shot("calendar", lambda d: "/calendar", wait_for=".calendar-entry"),
     Shot("activity", lambda d: "/activity", wait_for=".queue-item"),
     Shot("books", lambda d: "/library", wait_for=".library-book"),
     Shot("library", lambda d: "/settings/library", wait_for="#folder-template"),

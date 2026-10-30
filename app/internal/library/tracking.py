@@ -19,6 +19,8 @@ def record_grab(
     release_title: str | None,
     client_id: str | None = None,
     protocol: str | None = None,
+    guid: str | None = None,
+    indexer: str | None = None,
 ) -> LibraryImport | None:
     """Queues a started download for the library watcher to pick up.
 
@@ -40,6 +42,8 @@ def record_grab(
         existing.book_title = book.title
         existing.client_id = client_id
         existing.protocol = protocol
+        existing.guid = guid
+        existing.indexer = indexer
         session.add(existing)
         session.commit()
         return existing
@@ -50,6 +54,8 @@ def record_grab(
         release_title=release_title or book.title,
         client_id=client_id,
         protocol=protocol,
+        guid=guid,
+        indexer=indexer,
     )
     session.add(entry)
     session.commit()

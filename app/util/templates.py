@@ -11,6 +11,7 @@ from jinja2_fragments.fastapi import Jinja2Blocks
 from jinja2_htmlmin import minify_loader
 from jinjax import Catalog
 from jinjax.jinjax import JinjaX
+from markupsafe import Markup
 from starlette.background import BackgroundTask
 
 from app.internal.audible.types import audible_regions
@@ -24,13 +25,17 @@ templates = Jinja2Blocks(
             remove_empty_space=True,  # pyrefly: ignore[bad-argument-type]
             remove_all_empty_space=True,  # pyrefly: ignore[bad-argument-type]
             reduce_boolean_attributes=True,  # pyrefly: ignore[bad-argument-type]
-        )
+        ),
+        # book titles, release names and author names come from Audible and the
+        # indexers, so anything printed is escaped unless marked safe
+        autoescape=True,
     )
 )
 
 
-def _to_js_string(val: str | int | float) -> str:
-    return html.escape(f"'{str(val).replace("'", "\\'").replace('\n', '\\n')}'")
+def _to_js_string(val: str | int | float) -> Markup:
+    # already escaped for the attribute it goes into, so not escaped again
+    return Markup(html.escape(f"'{str(val).replace("'", "\\'").replace('\n', '\\n')}'"))
 
 
 # filters

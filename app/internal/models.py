@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Annotated, Literal, Union, cast
 
 from pydantic import BaseModel, ConfigDict
-from sqlmodel import JSON, Column, DateTime, Field, SQLModel, func
+from sqlmodel import JSON, Column, DateTime, Field, SQLModel, UniqueConstraint, func
 from sqlmodel._compat import SQLModelConfig
 from sqlmodel.main import Relationship
 
@@ -45,6 +45,10 @@ class User(BaseSQLModel, table=True):
     )
     root: bool = False
     extra_data: str | None = None
+    request_limit: int | None = None
+    """Requests allowed per period. None uses the limit set for the user's group, 0 means unlimited."""
+    abs_user_id: str | None = None
+    """Set for accounts that sign in with their Audiobookshelf login."""
 
     # TODO: Add last_login
     # last_login: datetime = Field(
@@ -90,6 +94,8 @@ class Audiobook(BaseSQLModel, table=True):
     runtime_length_min: int
     series: str | None = None
     series_position: str | None = None
+    language: str | None = None
+    """As Audible names it, e.g. "english". Unknown for books cached before it was stored."""
     download_status: DownloadStatusEnum | None = Field(default=None, index=True)
     search_attempts: int = Field(default=0)
     last_searched_at: datetime | None = Field(default=None)
@@ -113,6 +119,10 @@ class Audiobook(BaseSQLModel, table=True):
     @property
     def runtime_length_hrs(self):
         return round(self.runtime_length_min / 60, 1)
+
+    @property
+    def is_released(self) -> bool:
+        return self.release_date <= datetime.now()
 
 
 class AudiobookWithRequests(BaseModel):
@@ -149,6 +159,16 @@ class AudiobookRequest(BaseSQLModel, table=True):
     )
     approved: bool = False
     """An admin said yes, so it is treated like a trusted user's request."""
+    created_at: datetime = Field(
+        default_factory=datetime.now,
+        sa_column=Column(
+            server_default=func.now(),
+            type_=DateTime,
+            nullable=False,
+        ),
+    )
+    via_follow: str | None = None
+    """The followed author or series that requested this automatically."""
 
     audiobook: Audiobook = Relationship(back_populates="requests")  # pyright: ignore[reportAny]
     user: User = Relationship()  # pyright: ignore[reportAny]
@@ -209,6 +229,14 @@ class ManualBookRequest(BaseSQLModel, table=True):
     downloaded: bool = False
     approved: bool = False
     """An admin said yes, so it is treated like a trusted user's request."""
+    created_at: datetime = Field(
+        default_factory=datetime.now,
+        sa_column=Column(
+            server_default=func.now(),
+            type_=DateTime,
+            nullable=False,
+        ),
+    )
 
     user: User | None = Relationship()  # pyright: ignore[reportAny]
 
@@ -349,6 +377,9 @@ class LibraryImport(BaseSQLModel, table=True):
     """Torrent info hash, so the download client can be asked about it directly."""
     protocol: str | None = None
     """torrent or usenet, to decide which client to ask."""
+    guid: str | None = None
+    """Prowlarr's id for the release, so a bad one can be blocklisted exactly."""
+    indexer: str | None = None
     status: LibraryImportStatusEnum = Field(
         default=LibraryImportStatusEnum.pending,
         index=True,
@@ -369,6 +400,65 @@ class LibraryImport(BaseSQLModel, table=True):
         default_factory=datetime.now,
         sa_column=Column(
             onupdate=func.now(),
+            server_default=func.now(),
+            type_=DateTime,
+            nullable=False,
+        ),
+    )
+
+
+class FollowKindEnum(str, Enum):
+    author = "author"
+    series = "series"
+
+
+class Follow(BaseSQLModel, table=True):
+    """An author or series someone wants every new book from."""
+
+    __table_args__ = (  # pyright: ignore[reportUnannotatedClassAttribute]
+        UniqueConstraint("user_username", "kind", "audible_id"),
+    )
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_username: str = Field(
+        foreign_key="user.username", ondelete="CASCADE", index=True
+    )
+    kind: FollowKindEnum
+    audible_id: str
+    """The author's or series' ASIN. An author Audible has no ASIN for is keyed by name."""
+    name: str
+    known_asins: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    """Books already seen, so only new ones get requested."""
+    last_checked_at: datetime | None = None
+    last_error: str | None = None
+    created_at: datetime = Field(
+        default_factory=datetime.now,
+        sa_column=Column(
+            server_default=func.now(),
+            type_=DateTime,
+            nullable=False,
+        ),
+    )
+
+    model_config: SQLModelConfig = cast(
+        SQLModelConfig, cast(object, ConfigDict(arbitrary_types_allowed=True))
+    )
+
+
+class BlocklistedRelease(BaseSQLModel, table=True):
+    """A release that must not be grabbed again, because it failed or was bad."""
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    title: str = Field(index=True)
+    guid: str | None = Field(default=None, index=True)
+    indexer: str | None = None
+    asin_or_uuid: str | None = None
+    """The book it was grabbed for."""
+    book_title: str | None = None
+    reason: str | None = None
+    created_at: datetime = Field(
+        default_factory=datetime.now,
+        sa_column=Column(
             server_default=func.now(),
             type_=DateTime,
             nullable=False,

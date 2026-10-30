@@ -184,16 +184,15 @@ async def queue(
     session: Session, client_session: ClientSession, user: User
 ) -> list[QueueItem]:
     """Grabs that haven't reached the library yet, with live progress where possible."""
-    qbit = download_client_config.build_qbit(session)
-    sab = download_client_config.build_sab(session)
+    torrent = download_client_config.clients_for(session, "torrent")
+    usenet = download_client_config.clients_for(session, "usenet")
 
     def clients_for(protocol: str | None) -> list[DownloadClient]:
-        wanted: list[DownloadClient | None] = []
-        if protocol in (None, "torrent"):
-            wanted.append(qbit)
-        if protocol in (None, "usenet"):
-            wanted.append(sab)
-        return [c for c in wanted if c is not None]
+        if protocol == "torrent":
+            return torrent
+        if protocol == "usenet":
+            return usenet
+        return [*torrent, *usenet]
 
     async def build(row: LibraryImport) -> QueueItem:
         clients = clients_for(row.protocol)
@@ -236,6 +235,58 @@ async def queue(
 
     rows = _imports(session, user, pending=True)
     return list(await asyncio.gather(*(build(row) for row in rows)))
+
+
+async def remove_download(
+    session: Session,
+    client_session: ClientSession,
+    import_id: uuid.UUID,
+    *,
+    blocklist: bool,
+) -> str:
+    """Takes a grab out of the download client and stops waiting for it.
+
+    With `blocklist`, the release is never grabbed again and the next best one
+    is searched for straight away. Returns a message saying what happened.
+    """
+    from app.internal.library.watcher import fail_download
+    from app.internal.research import search_again
+
+    entry = session.get(LibraryImport, import_id)
+    if entry is None or entry.status != LibraryImportStatusEnum.pending:
+        return "That download is no longer in the queue"
+
+    removed_from = None
+    for client in download_client_config.clients_for(session, entry.protocol):
+        if await client.remove(
+            client_session, client_id=entry.client_id, name=entry.release_title
+        ):
+            removed_from = client.name
+            break
+
+    if blocklist:
+        fail_download(session, entry, "Removed from the queue and blocklisted")
+        started = await search_again(session, client_session, [entry.asin_or_uuid])
+        followup = " Grabbed another release." if started else ""
+    else:
+        entry.status = LibraryImportStatusEnum.failed
+        entry.error = "Removed from the queue"
+        session.add(entry)
+        book = get_book(session, entry.asin_or_uuid)
+        if book is not None:
+            book.downloaded = False
+            book.download_status = None
+            session.add(book)
+        session.commit()
+        followup = ""
+
+    where = (
+        f"from {removed_from}"
+        if removed_from
+        else "from the queue (no download client had it)"
+    )
+    verb = "Blocklisted and removed" if blocklist else "Removed"
+    return f"{verb} {entry.release_title} {where}.{followup}"
 
 
 def history(session: Session, user: User, limit: int = 50) -> list[HistoryItem]:

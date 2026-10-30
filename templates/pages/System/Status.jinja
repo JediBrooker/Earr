@@ -5,17 +5,12 @@
     config_dir: str,
 #}
 
-<BaseLayout title="System" user={{ user }}>
-<div class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-4 sm:p-6 lg:p-8">
+<SystemLayout user={{ user }} page="status">
+<div class="flex flex-col gap-8">
     <div class="flex flex-wrap items-end justify-between gap-3">
-        <div>
-            <h1 class="text-3xl font-bold tracking-tight">
-                System
-            </h1>
-            <p class="text-sm text-base-content/70">
-                Whether everything Earr depends on is reachable and set up correctly.
-            </p>
-        </div>
+        <p class="text-sm text-base-content/70">
+            Whether everything Earr depends on is reachable and set up correctly.
+        </p>
         <button class="btn btn-sm"
                 hx-get="{{ base_url }}/system/hx-checks?refresh=true"
                 hx-target="#health-checks"
@@ -59,4 +54,4 @@
         </dl>
     </section>
 </div>
-</BaseLayout>
+</SystemLayout>

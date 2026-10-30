@@ -1,0 +1,127 @@
+{#def
+    user: DetailedUser,
+    follows: list[FollowSummary],
+#}
+
+<BaseLayout title="Following" user={{ user }}>
+<div class="mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 sm:p-6 lg:p-8">
+    <div>
+        <h1 class="text-3xl font-bold tracking-tight">
+            Following
+        </h1>
+        <p class="text-sm text-base-content/70">
+            New books from these authors and series are requested for you as soon as Audible lists
+            them, including pre-orders.
+        </p>
+    </div>
+
+    <section class="flex flex-col gap-3">
+        <form hx-get="{{ base_url }}/following/hx-search"
+              hx-target="#follow-candidates"
+              hx-trigger="submit, input changed delay:600ms from:find input"
+              hx-indicator="#follow-searching"
+              class="flex w-full max-w-xl items-center gap-2">
+            <label class="input w-full">
+                <span class="opacity-50 [&_svg]:size-4">
+                    <icons.Search />
+                </span>
+                <input type="search"
+                       name="q"
+                       placeholder="Find an author or series to follow"
+                       autocomplete="off" />
+            </label>
+            <span id="follow-searching"
+                  class="loading loading-spinner loading-sm htmx-indicator"></span>
+        </form>
+        <div id="follow-candidates">
+        </div>
+    </section>
+
+    {% if not follows %}
+        <div class="rounded-box border border-dashed border-base-content/20 p-10 text-center">
+            <p class="font-medium">
+                You're not following anyone yet
+            </p>
+            <p class="text-sm text-base-content/60">
+                Search above, or open a book and choose Follow author or Follow series.
+            </p>
+        </div>
+    {% else %}
+        <div class="overflow-x-auto rounded-box border border-base-content/10">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>
+                            Following
+                        </th>
+                        <th class="hidden sm:table-cell">
+                            Requested
+                        </th>
+                        <th class="hidden md:table-cell">
+                            Next release
+                        </th>
+                        <th class="hidden md:table-cell">
+                            Last checked
+                        </th>
+                        <th>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in follows %}
+                        {% set follow = item.follow %}
+                        <tr class="follow-row">
+                            <td>
+                                <p class="font-semibold">
+                                    {{ follow.name }}
+                                </p>
+                                <p class="text-xs text-base-content/60">
+                                    {{ "Author" if follow.kind.value == "author" else "Series" }}
+                                    {%- if user.is_admin() and not user.is_self(follow.user_username) %} · for {{ follow.user_username }}{% endif %}
+                                </p>
+                                {% if follow.last_error %}
+                                    <p class="text-xs text-error">
+                                        {{ follow.last_error }}
+                                    </p>
+                                {% endif %}
+                            </td>
+                            <td class="hidden sm:table-cell text-sm">
+                                {{ item.requested }} book{{ "" if item.requested == 1 else "s" }}
+                            </td>
+                            <td class="hidden md:table-cell text-sm">
+                                {% if item.next_release %}
+                                    <a class="link link-hover"
+                                       href="{{ base_url }}/book/{{ item.next_release.asin }}">{{ item.next_release.title }}</a>
+                                    <span class="text-xs text-base-content/60">{{ item.next_release.release_date.strftime("%-d %b %Y") }}</span>
+                                {% else %}
+                                    <span class="text-base-content/50">None announced</span>
+                                {% endif %}
+                            </td>
+                            <td class="hidden md:table-cell text-sm text-base-content/70">
+                                {{ follow.last_checked_at.strftime("%-d %b %H:%M") if follow.last_checked_at else "Not yet" }}
+                            </td>
+                            <td>
+                                <div class="flex justify-end gap-2">
+                                    <button class="btn btn-sm"
+                                            hx-post="{{ base_url }}/following/{{ follow.id }}/hx-check"
+                                            hx-swap="none"
+                                            hx-disabled-elt="this">
+                                        Check now
+                                    </button>
+                                    <button class="btn btn-sm btn-ghost text-error"
+                                            hx-delete="{{ base_url }}/following/hx-follow/{{ follow.id }}?style=row"
+                                            hx-target="closest .follow-row"
+                                            hx-swap="delete"
+                                            hx-confirm="Stop following {{ follow.name }}? Books already requested stay requested.">
+                                        Unfollow
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
+</BaseLayout>

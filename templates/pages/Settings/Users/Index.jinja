@@ -2,6 +2,7 @@
     user: DetailedUser,
     users: Sequence[User],
     is_oidc: bool,
+    limits: RequestLimitSettings,
 #}
 
 <SettingsLayout user={{ user }} page="users" title="Settings - Users">
@@ -55,6 +56,49 @@
     </select>
     <button id="submit" class="btn btn-primary" type="submit">
         Create user
+    </button>
+</form>
+
+<form class="flex flex-col gap-2 border-t border-base-200 pt-4 mt-4"
+      hx-post="{{ base_url }}/settings/users/hx-limits"
+      hx-swap="none">
+    <h2 class="text-lg">
+        Request limits
+    </h2>
+    <p class="text-xs opacity-60">
+        How many books each person may request. 0 means no limit. Admins are never limited, and books
+        requested because someone follows an author or series don't count. Set a different limit for
+        one person in the list below.
+    </p>
+    <div class="grid gap-2 sm:grid-cols-3">
+        <label class="flex flex-col gap-1">
+            <span class="text-sm">Untrusted</span>
+            <input type="number"
+                   min="0"
+                   name="untrusted"
+                   value="{{ limits.untrusted }}"
+                   class="input w-full" />
+        </label>
+        <label class="flex flex-col gap-1">
+            <span class="text-sm">Trusted</span>
+            <input type="number"
+                   min="0"
+                   name="trusted"
+                   value="{{ limits.trusted }}"
+                   class="input w-full" />
+        </label>
+        <label class="flex flex-col gap-1">
+            <span class="text-sm">Per</span>
+            <select name="period" class="select w-full">
+                {% for value in ["day", "week", "month"] %}
+                    <option value="{{ value }}"
+                            {% if limits.period == value %}selected{% endif %}>{{ value | capitalize }}</option>
+                {% endfor %}
+            </select>
+        </label>
+    </div>
+    <button class="btn w-fit">
+        Save limits
     </button>
 </form>
 

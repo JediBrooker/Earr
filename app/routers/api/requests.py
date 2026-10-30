@@ -46,6 +46,8 @@ from app.internal.prowlarr.prowlarr import start_download
 from app.internal.prowlarr.util import ProwlarrMisconfigured, prowlarr_config
 from app.internal.query import QueryResult, background_start_query, query_sources
 from app.internal.ranking.quality import quality_config
+from app.internal.request_limits import raise_if_over
+from app.internal.requesting import starts_download
 from app.util.censor import censor
 from app.util.connection import get_connection
 from app.util.db import get_session
@@ -78,6 +80,7 @@ async def create_manual_request(
     background_task: BackgroundTasks,
     user: Annotated[DetailedUser, Security(AnyAuth())],
 ):
+    raise_if_over(session, user)
     book_request = ManualBookRequest(
         user_username=user.username,
         title=body.title,
@@ -134,22 +137,23 @@ async def create_request(
         if not book:
             raise HTTPException(status_code=404, detail="Book not found")
 
-    if not session.exec(
+    if session.exec(
         select(AudiobookRequest).where(
             AudiobookRequest.asin == asin_or_uuid,
             AudiobookRequest.user_username == user.username,
         )
     ).first():
-        book_request = AudiobookRequest(asin=asin_or_uuid, user_username=user.username)
-        session.add(book_request)
-        session.commit()
-        logger.info(
-            "Added new audiobook request",
-            username=censor(user.username),
-            asin=asin_or_uuid,
-        )
-    else:
         raise HTTPException(status_code=409, detail="Book already requested")
+
+    raise_if_over(session, user)
+    book_request = AudiobookRequest(asin=asin_or_uuid, user_username=user.username)
+    session.add(book_request)
+    session.commit()
+    logger.info(
+        "Added new audiobook request",
+        username=censor(user.username),
+        asin=asin_or_uuid,
+    )
 
     background_task.add_task(
         send_all_notifications,
@@ -157,8 +161,9 @@ async def create_request(
         book_asin=asin_or_uuid,
     )
 
-    if quality_config.get_auto_download(session) and user.is_above(GroupEnum.trusted):
-        # start querying and downloading if auto download is enabled
+    if starts_download(session, user, book):
+        # start querying and downloading if auto download is enabled; a
+        # pre-order waits for the release-day search instead
         background_task.add_task(
             background_start_query,
             asin_or_uuid=asin_or_uuid,

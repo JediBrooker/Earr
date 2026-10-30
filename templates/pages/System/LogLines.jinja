@@ -1,0 +1,44 @@
+{#def
+    lines: list[LogLine],
+    level: str,
+    query: str,
+#}
+
+<div id="log-lines"
+     hx-get="{{ base_url }}/system/hx-logs?level={{ level }}&q={{ query | urlencode }}"
+     hx-trigger="every 5s [document.getElementById('log-follow')?.checked]"
+     hx-swap="outerHTML"
+     class="overflow-x-auto rounded-box border border-base-content/10 bg-base-200/40">
+    {% if not lines %}
+        <p class="p-8 text-center text-sm text-base-content/60">
+            No log lines match.
+        </p>
+    {% else %}
+        <ol class="divide-y divide-base-content/5 font-mono text-xs">
+            {% for line in lines %}
+                <li class="log-line flex flex-col gap-1 px-3 py-1.5">
+                    <div class="flex flex-wrap items-baseline gap-x-3">
+                        <span class="shrink-0 text-base-content/50">{{ line.time }}</span>
+                        <span class="w-14 shrink-0 font-semibold uppercase {{ {'error': 'text-error', 'critical': 'text-error', 'warning': 'text-warning', 'info': 'text-info'}.get(line.level, 'text-base-content/50') }}">{{ line.level }}</span>
+                        <span class="break-words">{{ line.event }}</span>
+                    </div>
+                    {% if line.fields %}
+                        <p class="pl-0 text-base-content/60 break-all sm:pl-[13.5rem]">
+                            {% for key, value in line.fields.items() %}
+                                <span>{{ key }}=<span class="text-base-content/80">{{ value }}</span></span>
+                            {% endfor %}
+                        </p>
+                    {% endif %}
+                    {% if line.exception %}
+                        <details class="sm:pl-[13.5rem]">
+                            <summary class="cursor-pointer text-error">
+                                Traceback
+                            </summary>
+                            <pre class="whitespace-pre-wrap text-error/80">{{ line.exception }}</pre>
+                        </details>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ol>
+    {% endif %}
+</div>

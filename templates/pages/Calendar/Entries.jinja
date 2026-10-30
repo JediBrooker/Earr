@@ -1,0 +1,42 @@
+{#def
+    entries: list[CalendarEntry],
+    user: DetailedUser,
+#}
+
+<ul class="flex flex-col divide-y divide-base-content/10 rounded-box border border-base-content/10">
+    {% for entry in entries %}
+        {% set book = entry.book %}
+        <li class="calendar-entry flex items-center gap-4 p-3">
+            <div class="w-14 shrink-0 text-center">
+                <p class="text-xs uppercase text-base-content/60">
+                    {{ book.release_date.strftime("%b") }}
+                </p>
+                <p class="text-2xl font-bold leading-none">
+                    {{ book.release_date.day }}
+                </p>
+            </div>
+            <a href="{{ base_url }}/book/{{ book.asin }}"
+               class="size-12 shrink-0 overflow-hidden rounded-md bg-base-200">
+                {% if book.cover_image %}
+                    <img src="{{ book.cover_image }}" alt="" class="size-full object-cover" />
+                {% endif %}
+            </a>
+            <div class="min-w-0 flex-1">
+                <a href="{{ base_url }}/book/{{ book.asin }}"
+                   class="font-semibold line-clamp-1 hover:underline">{{ book.title }}</a>
+                <p class="text-xs text-base-content/60 line-clamp-1">
+                    {{ book.authors | join(", ") }}
+                    {%- if book.series %} · {{ book.series }}{% if book.series_position %} #{{ book.series_position }}{% endif %}{% endif %}
+                </p>
+                {% if entry.via_follow or (user.is_admin() and entry.requested_by) %}
+                    <p class="text-xs text-base-content/50 line-clamp-1">
+                        {% if entry.via_follow %}Following {{ entry.via_follow | join(", ") }}{% endif %}
+                        {%- if entry.via_follow and user.is_admin() and entry.requested_by %} · {% endif %}
+                        {%- if user.is_admin() and entry.requested_by %}for {{ entry.requested_by | join(", ") }}{% endif %}
+                    </p>
+                {% endif %}
+            </div>
+            <span class="badge badge-sm shrink-0 {{ {'In library': 'badge-success', 'Downloading': 'badge-info', 'Out now': 'badge-neutral', 'Pre-ordered': 'badge-warning'}[entry.status] }}">{{ entry.status }}</span>
+        </li>
+    {% endfor %}
+</ul>

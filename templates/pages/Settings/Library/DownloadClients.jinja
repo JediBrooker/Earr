@@ -10,98 +10,73 @@
         Optional, but much more reliable. Without one, a finished download is found by matching the
         release name against folder names, which fails when the client renames the folder. With one,
         Earr asks the client exactly where it put the files, and knows when a download is still
-        running or has failed rather than guessing.
+        running or has failed rather than guessing. Turn on the ones Prowlarr sends grabs to.
     </p>
 
     <form class="flex flex-col gap-2"
           hx-put="{{ base_url }}/settings/library/hx-download-clients"
           hx-disabled-elt="#dc-save">
-        <div class="w-full flex items-center justify-between gap-2 border-t pt-3 border-base-200">
-            <label for="qbit-enabled" class="font-semibold">
-                qBittorrent <span class="text-xs font-normal opacity-60">(torrents)</span>
-            </label>
-            <input id="qbit-enabled"
-                   name="qbit_enabled"
-                   type="checkbox"
-                   class="checkbox"
-                   {% if settings.qbit_enabled %}checked{% endif %} />
-        </div>
-        <input name="qbit_url"
-               type="text"
-               value="{{ settings.qbit_url }}"
-               placeholder="http://192.168.0.102:8080"
-               class="input w-full" />
-        <div class="flex gap-2">
-            <input name="qbit_username"
-                   type="text"
-                   value="{{ settings.qbit_username }}"
-                   placeholder="username (blank if the host is whitelisted)"
-                   class="input w-full" />
-            <input name="qbit_password"
-                   type="password"
-                   {% if settings.qbit_password_set %}placeholder="●●●●●●●● (unchanged)"{% else %}placeholder="password"{% endif %}
-                   class="input w-full" />
-        </div>
-
-        {% if settings.qbit_categories %}
-            <select name="qbit_category" class="select w-full">
-                <option value="" {% if not settings.qbit_category %}selected{% endif %}>
-                    Leave the category alone
-                </option>
-                {% for c in settings.qbit_categories %}
-                    <option value="{{ c }}" {% if settings.qbit_category==c %}selected{% endif %}>{{ c }}</option>
-                {% endfor %}
-            </select>
-        {% else %}
-            <input name="qbit_category"
-                   type="text"
-                   value="{{ settings.qbit_category }}"
-                   placeholder="category (qBittorrent unreachable, so type it)"
-                   class="input w-full" />
-        {% endif %}
-
-        <div class="w-full flex items-center justify-between gap-2 border-t pt-3 border-base-200">
-            <label for="sab-enabled" class="font-semibold">
-                SABnzbd <span class="text-xs font-normal opacity-60">(usenet)</span>
-            </label>
-            <input id="sab-enabled"
-                   name="sab_enabled"
-                   type="checkbox"
-                   class="checkbox"
-                   {% if settings.sab_enabled %}checked{% endif %} />
-        </div>
-        <input name="sab_url"
-               type="text"
-               value="{{ settings.sab_url }}"
-               placeholder="http://192.168.0.103:8080"
-               class="input w-full" />
-        <input name="sab_api_key"
-               type="password"
-               {% if settings.sab_api_key_set %}placeholder="●●●●●●●● (unchanged)"{% else %}placeholder="API key"{% endif %}
-               class="input w-full" />
-
-        {% if settings.sab_categories %}
-            <select name="sab_category" class="select w-full">
-                <option value="" {% if not settings.sab_category %}selected{% endif %}>
-                    Leave the category alone
-                </option>
-                {% for c in settings.sab_categories %}
-                    <option value="{{ c }}" {% if settings.sab_category==c %}selected{% endif %}>{{ c }}</option>
-                {% endfor %}
-            </select>
-        {% else %}
-            <input name="sab_category"
-                   type="text"
-                   value="{{ settings.sab_category }}"
-                   placeholder="category (SABnzbd unreachable, so type it)"
-                   class="input w-full" />
-        {% endif %}
+        {% for client in settings.clients %}
+            <details class="download-client group border-t border-base-200 pt-3"
+                     {% if client.enabled %}open{% endif %}>
+                <summary class="flex cursor-pointer list-none items-center justify-between gap-2">
+                    <span class="font-semibold">
+                        {{ client.name }}
+                        <span class="text-xs font-normal opacity-60">({{ "torrents" if client.protocol == "torrent" else "usenet" }})</span>
+                        {% if client.enabled %}<span class="badge badge-xs badge-success ml-1">on</span>{% endif %}
+                    </span>
+                    <input name="{{ client.id }}_enabled"
+                           type="checkbox"
+                           class="checkbox"
+                           aria-label="Use {{ client.name }}"
+                           onclick="event.stopPropagation()"
+                           {% if client.enabled %}checked{% endif %} />
+                </summary>
+                <div class="flex flex-col gap-2 pt-2">
+                    <input name="{{ client.id }}_url"
+                           type="text"
+                           value="{{ client.url }}"
+                           placeholder="{{ {'qbit': 'http://192.168.0.102:8080', 'transmission': 'http://192.168.0.102:9091', 'deluge': 'http://192.168.0.102:8112', 'sab': 'http://192.168.0.103:8080', 'nzbget': 'http://192.168.0.103:6789'}[client.id] }}"
+                           class="input w-full" />
+                    <div class="flex gap-2">
+                        {% if client.has_username %}
+                            <input name="{{ client.id }}_username"
+                                   type="text"
+                                   value="{{ client.username }}"
+                                   placeholder="username{{ ' (blank if the host is whitelisted)' if client.id == 'qbit' else '' }}"
+                                   class="input w-full" />
+                        {% endif %}
+                        <input name="{{ client.id }}_secret"
+                               type="password"
+                               {% if client.secret_set %}placeholder="●●●●●●●● (unchanged)"{% else %}placeholder="{{ client.secret_label }}"{% endif %}
+                               class="input w-full" />
+                    </div>
+                    {% if client.categories %}
+                        <select name="{{ client.id }}_category" class="select w-full">
+                            <option value="" {% if not client.category %}selected{% endif %}>
+                                Leave the {{ "label" if client.id in ("transmission", "deluge") else "category" }} alone
+                            </option>
+                            {% for c in client.categories %}
+                                <option value="{{ c }}" {% if client.category == c %}selected{% endif %}>{{ c }}</option>
+                            {% endfor %}
+                        </select>
+                    {% else %}
+                        <input name="{{ client.id }}_category"
+                               type="text"
+                               value="{{ client.category }}"
+                               placeholder="{{ 'label' if client.id in ('transmission', 'deluge') else 'category' }} (optional)"
+                               class="input w-full" />
+                    {% endif %}
+                </div>
+            </details>
+        {% endfor %}
 
         <p class="text-xs opacity-60 pt-1">
             Prowlarr picks the category when it hands a release to the client and offers no way to
             override it, so Earr moves the download afterwards. In qBittorrent this relocates the
             files if the category has a save path and Auto Torrent Management is on, which is usually
-            the point. SABnzbd can only recategorise a job that is still in the queue.
+            the point. Transmission and Deluge use labels (Deluge needs its Label plugin), and SABnzbd
+            and NZBGet can only recategorise a job that is still in the queue.
         </p>
 
         <div class="flex gap-2 pt-2">

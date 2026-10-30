@@ -274,28 +274,16 @@ class TestDownloadClientForm:
 
     API = "/api/settings/library/download-clients"
 
-    def test_every_form_field_has_a_default(self):
-        """The actual regression: a required Form field 422s when omitted."""
+    def test_the_form_handler_reads_the_raw_form(self):
+        """The actual regression: a required Form field 422s when the browser
+        omits it, as it does for unticked boxes and empty inputs. The handler
+        takes no Form parameters at all, so nothing can be required."""
         import inspect
 
         from app.routers.pages.settings.library import update_download_clients
 
         params = inspect.signature(update_download_clients).parameters
-        form_fields = [
-            "qbit_url",
-            "qbit_username",
-            "qbit_password",
-            "sab_url",
-            "sab_api_key",
-            "qbit_enabled",
-            "sab_enabled",
-        ]
-        missing = [
-            f
-            for f in form_fields
-            if params[f].default is inspect.Parameter.empty
-        ]
-        assert missing == [], f"these would 422 when the browser omits them: {missing}"
+        assert set(params) == {"request", "session", "admin_user"}
 
     def test_a_blank_secret_keeps_the_stored_one(
         self, client: TestClient, admin: dict[str, str], session: Session
@@ -306,11 +294,7 @@ class TestDownloadClientForm:
 
         r = client.put(
             self.API,
-            json={
-                "sab_enabled": True,
-                "sab_url": "http://127.0.0.1:7777",
-                "sab_api_key": None,
-            },
+            json={"clients": {"sab": {"enabled": True, "url": "http://127.0.0.1:7777"}}},
             headers=admin,
         )
 
@@ -327,9 +311,13 @@ class TestDownloadClientForm:
         r = client.put(
             self.API,
             json={
-                "sab_enabled": True,
-                "sab_url": "http://127.0.0.1:7777",
-                "sab_api_key": "new",
+                "clients": {
+                    "sab": {
+                        "enabled": True,
+                        "url": "http://127.0.0.1:7777",
+                        "secret": "new",
+                    }
+                }
             },
             headers=admin,
         )
@@ -340,18 +328,32 @@ class TestDownloadClientForm:
     def test_enabling_without_a_url_is_rejected(
         self, client: TestClient, admin: dict[str, str]
     ):
-        r = client.put(self.API, json={"qbit_enabled": True}, headers=admin)
+        r = client.put(
+            self.API,
+            json={"clients": {"transmission": {"enabled": True}}},
+            headers=admin,
+        )
 
         assert r.status_code == 422
-        assert "URL is required" in r.json()["detail"]
+        assert r.json()["detail"] == "Transmission URL is required"
 
-    def test_an_empty_payload_turns_both_off(
+    def test_only_the_listed_clients_change(
         self, client: TestClient, admin: dict[str, str], session: Session
     ):
         from app.internal.download_clients.config import download_client_config
 
-        r = client.put(self.API, json={}, headers=admin)
+        download_client_config.set_enabled(session, "sab", True)
+        download_client_config.set_field(session, "sab", "url", "http://sab:8080")
+
+        r = client.put(
+            self.API,
+            json={"clients": {"qbit": {}, "nzbget": {"url": "http://nzb:6789/"}}},
+            headers=admin,
+        )
 
         assert r.status_code == 204
-        assert download_client_config.get_qbit_enabled(session) is False
-        assert download_client_config.get_sab_enabled(session) is False
+        assert download_client_config.get_enabled(session, "qbit") is False
+        assert download_client_config.get_enabled(session, "sab") is True
+        assert download_client_config.get_field(session, "nzbget", "url") == (
+            "http://nzb:6789"
+        )

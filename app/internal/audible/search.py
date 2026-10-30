@@ -9,6 +9,7 @@ from sqlmodel import Session, col, not_, select
 
 from app.internal.audible.types import (
     REFETCH_TTL,
+    RESPONSE_GROUPS,
     AudibleSearchResponse,
     audible_region_type,
     audible_regions,
@@ -163,7 +164,7 @@ async def search_audible_books(
         "products_sort_by": "Relevance",
         "keywords": query,
         "page": page,
-        "response_groups": ["media"],
+        "response_groups": RESPONSE_GROUPS,
     }
 
     try:

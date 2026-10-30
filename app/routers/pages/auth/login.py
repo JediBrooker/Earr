@@ -2,18 +2,17 @@ from typing import Annotated
 from urllib.parse import urlencode
 
 import jwt
+from aiohttp import ClientSession
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session
 
-from app.internal.auth.authentication import (
-    EarrAuth,
-    RequiresLoginException,
-    authenticate_user,
-)
+from app.internal.auth.abs_login import abs_login_config, authenticate
+from app.internal.auth.authentication import EarrAuth, RequiresLoginException
 from app.internal.auth.config import auth_config
 from app.internal.auth.login_types import LoginTypeEnum
 from app.internal.auth.oidc_config import InvalidOIDCConfiguration, oidc_config
+from app.util.connection import get_connection
 from app.util.db import get_session
 from app.util.log import logger
 from app.util.redirect import BaseUrlRedirectResponse
@@ -50,6 +49,7 @@ async def login(
             title=title,
             backup=backup,
             redirect_uri=redirect_uri,
+            abs_login=abs_login_config.is_active(session) and not backup,
         )
 
     # OIDC login
@@ -100,13 +100,20 @@ async def login(
 
 
 @router.post("/hx-login")
-def login_access_token(
+async def login_access_token(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
+    client_session: Annotated[ClientSession, Depends(get_connection)],
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     redirect_uri: Annotated[str, Form()] = "/",
 ):
-    user = authenticate_user(session, form_data.username, form_data.password)
+    user = await authenticate(
+        session,
+        form_data.username,
+        form_data.password,
+        recheck=True,
+        client_session=client_session,
+    )
     if not user:
         raise ToastException("Invalid login", "error")
 

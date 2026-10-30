@@ -1,0 +1,34 @@
+{#def
+    book_with_requests: AudiobookWithRequests,
+    user: DetailedUser,
+    auto_start_download: bool,
+#}
+
+{% set book = book_with_requests.book %}
+<span class="request-button inline-flex">
+    {% if book.downloaded %}
+        <span class="btn btn-sm btn-success pointer-events-none">In library</span>
+    {% elif book_with_requests.already_requested %}
+        <span class="btn btn-sm btn-ghost pointer-events-none">
+            <span class="[&_svg]:size-4"><icons.Checkmark /></span>
+            {{ "Pre-ordered" if not book.is_released else "Requested" }}
+        </span>
+    {% else %}
+        <button class="btn btn-sm btn-primary"
+                hx-post="{{ base_url }}/book/{{ book.asin }}/hx-request"
+                hx-target="closest .request-button"
+                hx-swap="outerHTML"
+                hx-disabled-elt="this">
+            {% if not book.is_released %}
+                <span class="[&_svg]:size-4"><icons.Calendar /></span>
+                Pre-order
+            {% elif auto_start_download and user.can_download() %}
+                <span class="[&_svg]:size-4"><icons.Download /></span>
+                Download
+            {% else %}
+                <span class="[&_svg]:size-4"><icons.Plus /></span>
+                Request
+            {% endif %}
+        </button>
+    {% endif %}
+</span>

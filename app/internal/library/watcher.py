@@ -170,6 +170,9 @@ async def locate_via_client(
                 release_title=entry.release_title,
                 error=info.error,
             )
+            fail_download(
+                session, entry, f"{client.name}: {info.error or 'download failed'}"
+            )
             return None, True
 
         if info.state == DownloadState.downloading:
@@ -208,6 +211,29 @@ async def locate_via_client(
         return path, True
 
     return None, False
+
+
+def fail_download(session: Session, entry: LibraryImport, reason: str) -> None:
+    """Gives up on a grab, blocklists the release, and frees the book for a new search."""
+    from app.internal import blocklist
+
+    entry.status = LibraryImportStatusEnum.failed
+    entry.error = reason
+    session.add(entry)
+    session.commit()
+    _ = blocklist.add_import(session, entry, reason)
+    book = get_book(session, entry.asin_or_uuid)
+    if book is not None:
+        set_download_status(session, book, DownloadStatusEnum.failed)
+        # due for a search straight away rather than after the usual wait
+        book.last_searched_at = None
+        session.add(book)
+        session.commit()
+    _failed.append(entry.asin_or_uuid)
+
+
+_failed: list[str] = []
+"""Books whose download failed since the last pass, to search for again."""
 
 
 def expire_stale_imports(session: Session) -> int:
@@ -370,12 +396,26 @@ async def notify_imported(session: Session, entries: list[LibraryImport]) -> Non
             )
 
 
+async def _search_again_after_failures(
+    session: Session, client_session: ClientSession
+) -> None:
+    """Looks for another release of each book whose download just failed."""
+    from app.internal.research import search_again
+
+    if not _failed:
+        return
+    identifiers = list(dict.fromkeys(_failed))
+    _failed.clear()
+    _ = await search_again(session, client_session, identifiers)
+
+
 async def scan_downloads() -> None:
     """Scheduled entry point. Never raises so the scheduler keeps running."""
     try:
         with next(get_session()) as session:
             async with ClientSession() as client_session:
                 imported = await scan(session, client_session)
+                await _search_again_after_failures(session, client_session)
                 if not imported:
                     return
                 logger.info("Library: organized downloads", count=imported)

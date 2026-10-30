@@ -63,6 +63,17 @@ class ReachableClient(DownloadClient):
         return True
 
     @override
+    async def remove(
+        self,
+        client_session: ClientSession,
+        *,
+        client_id: str | None = None,
+        name: str | None = None,
+        delete_files: bool = True,
+    ) -> bool:
+        return False
+
+    @override
     async def find(
         self,
         client_session: ClientSession,
