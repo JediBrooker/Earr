@@ -21,6 +21,10 @@ install_daisy:
 tailwind:
     tailwindcss -i static/tw.css -o static/globals.css --watch
 
+# redraw the favicon and app icons, see scripts/icons.py
+icons:
+    uv run --group readme python scripts/icons.py
+
 # update all uv packages
 upgrade:
     uvx uv-upgrade

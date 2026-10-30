@@ -17,7 +17,9 @@ etag_cache: dict[PathLike[str] | str, str] = {}
 
 
 def add_cache_headers(func: Callable[..., FileResponse]):
-    def wrapper(v: object):
+    # `v` is the cache-busting version pages append. It is optional because
+    # some fetches can't add it, like the icons the web manifest lists.
+    def wrapper(v: object = None):
         _ = v
         file = func()
         etag = etag_cache.get(file.path)
@@ -68,6 +70,26 @@ def read_favicon_32():
 @add_cache_headers
 def read_favicon_16():
     return FileResponse(root / "favicon-16x16.png", media_type="image/png")
+
+
+@router.get("/android-chrome-192x192.png")
+@add_cache_headers
+def read_android_chrome_192():
+    return FileResponse(root / "android-chrome-192x192.png", media_type="image/png")
+
+
+@router.get("/android-chrome-512x512.png")
+@add_cache_headers
+def read_android_chrome_512():
+    return FileResponse(root / "android-chrome-512x512.png", media_type="image/png")
+
+
+@router.get("/android-chrome-maskable-512x512.png")
+@add_cache_headers
+def read_android_chrome_maskable_512():
+    return FileResponse(
+        root / "android-chrome-maskable-512x512.png", media_type="image/png"
+    )
 
 
 @router.get("/site.webmanifest")
