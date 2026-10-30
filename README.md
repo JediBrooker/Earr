@@ -4,8 +4,8 @@
 
 <p align="center">
   <a href="https://github.com/JediBrooker/Earr/actions/workflows/build.yaml"><img alt="Build" src="https://github.com/JediBrooker/Earr/actions/workflows/build.yaml/badge.svg?branch=main"></a>
-  <a href="https://github.com/JediBrooker/Earr/pkgs/container/earr"><img alt="Image: ghcr.io/jedibrooker/earr" src="https://img.shields.io/badge/image-ghcr.io%2Fjedibrooker%2Fearr-2496ED?logo=docker&logoColor=white"></a>
-  <a href="LICENSE"><img alt="License: GPL-3.0" src="https://img.shields.io/github/license/JediBrooker/Earr"></a>
+  <a href="https://github.com/JediBrooker/Earr/pkgs/container/earr"><img alt="Image: ghcr.io/jedibrooker/earr" src="media/badges/image.svg"></a>
+  <a href="LICENSE"><img alt="License: GPL-3.0" src="media/badges/license.svg"></a>
 </p>
 
 Earr is a request app for audiobooks, in the spirit of Overseerr and Jellyseerr. Everyone in your household
