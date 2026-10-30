@@ -8,6 +8,10 @@
 {% set book = book_with_requests.book %}
 {% set already_requested = book_with_requests.already_requested %}
 {% set series_label = (book.series or "") ~ (" #" ~ book.series_position if book.series and book.series_position else "") %}
+{# where the book stands, so nobody asks for something that is already on its way #}
+{% set download_status = book.download_status.value if book.download_status else None %}
+{% set status_label = "Downloading" if download_status == "grabbed" else ("In library" if book.downloaded else ("Requested" if book_with_requests.requests else "")) %}
+{% set status_class = {"Downloading": "badge-info", "In library": "badge-success", "Requested": "badge-neutral"}.get(status_label, "") %}
 
 <div class="book-card flex flex-col">
     <div class="relative w-32 h-32 sm:w-40 sm:h-40 rounded-md overflow-hidden shadow shadow-black items-center justify-center flex">
@@ -29,6 +33,9 @@
             </dialog>
         {% else %}
             <icons.PhotoOff />
+        {% endif %}
+        {% if status_label %}
+            <span class="book-status badge badge-sm {{ status_class }} pointer-events-none absolute bottom-1 left-1 shadow-sm">{{ status_label }}</span>
         {% endif %}
         <!-- Request Button -->
         <button class="absolute top-0 right-0 rounded-none rounded-bl-md btn-sm btn btn-square items-center justify-center flex {% if book.downloaded or already_requested %}btn-ghost bg-success text-neutral/20{% else %}btn-primary{% endif %}"
