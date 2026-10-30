@@ -14,6 +14,7 @@
     title_ratio: int,
     indexer_flags: list[IndexerFlags],
     languages: list[LanguageOption],
+    upgrades: UpgradeSettings,
 #}
 
 <SettingsLayout user={{ user }} page="download" title="Settings - Download">
@@ -86,6 +87,51 @@
         </div>
         <button class="btn w-fit">
             Save languages
+        </button>
+    </form>
+    <hr class="my-4 border-base-200" />
+
+    <form class="flex flex-col gap-2"
+          hx-post="{{ base_url }}/settings/download/hx-upgrades"
+          hx-swap="none">
+        <h2 class="text-lg">
+            Upgrades
+        </h2>
+        <p class="text-xs opacity-60">
+            Keep looking for a better release of books that were downloaded in a lower format, say an MP3 when
+            an M4B with chapters turns up later. A better release has to clear the same quality settings as any
+            automatic download. Once it's in the library, the old audio files are removed from the book's folder.
+            Checked every 6 hours, each book at most once a day.
+        </p>
+        <label class="flex items-center justify-between gap-2">
+            Look for upgrades
+            <input type="checkbox"
+                   name="enabled"
+                   class="toggle toggle-primary"
+                   {% if upgrades.enabled %}checked{% endif %} />
+        </label>
+        <label class="flex items-center justify-between gap-2">
+            Good enough at
+            <select name="cutoff" class="select w-48">
+                {% for f in upgrades.formats %}
+                    <option value="{{ f }}" {% if upgrades.cutoff == f %}selected{% endif %}>{{ f }} or better</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label class="flex items-center justify-between gap-2">
+            Stop looking after (days)
+            <input type="number"
+                   name="days"
+                   min="1"
+                   max="365"
+                   value="{{ upgrades.days }}"
+                   class="input w-24" />
+        </label>
+        <p class="text-xs opacity-60">
+            "Better" follows the format order in the sliders above.
+        </p>
+        <button class="btn w-fit">
+            Save upgrades
         </button>
     </form>
     <hr class="my-4 border-base-200" />

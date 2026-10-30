@@ -110,7 +110,59 @@
                    target="_blank"
                    rel="noopener"
                    href="https://audible{{ audible_regions[region] }}/pd/{{ book.asin }}?ipRedirectOverride=true">Audible</a>
+                {% if book.downloaded and download_status != "grabbed" %}
+                    <button class="btn btn-sm btn-ghost" onclick="report_dialog.showModal()">
+                        <span class="[&_svg]:size-4"><icons.Flag /></span>
+                        Report a problem
+                    </button>
+                {% endif %}
             </div>
+            {% if book.downloaded and download_status != "grabbed" %}
+                <dialog id="report_dialog" class="modal">
+                    <div class="modal-box">
+                        <h3 class="text-lg font-bold">
+                            Report a problem with {{ book.title }}
+                        </h3>
+                        <form class="mt-4 flex flex-col gap-3"
+                              hx-post="{{ base_url }}/issues/hx-report/{{ book.asin }}"
+                              hx-swap="none"
+                              hx-on::after-request="if (event.detail.successful) report_dialog.close()">
+                            <select name="kind" class="select w-full" required>
+                                <option value="wrong_book">
+                                    It's the wrong book
+                                </option>
+                                <option value="bad_audio">
+                                    The audio is bad
+                                </option>
+                                <option value="incomplete">
+                                    Parts are missing
+                                </option>
+                                <option value="other">
+                                    Something else
+                                </option>
+                            </select>
+                            <textarea name="message"
+                                      maxlength="2000"
+                                      rows="3"
+                                      class="textarea w-full"
+                                      placeholder="What's wrong? Chapter numbers or timestamps help."></textarea>
+                            <div class="modal-action mt-0">
+                                <button type="button" class="btn" onclick="report_dialog.close()">
+                                    Cancel
+                                </button>
+                                <button class="btn btn-primary">
+                                    Report
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    <form method="dialog" class="modal-backdrop">
+                        <button>
+                            close
+                        </button>
+                    </form>
+                </dialog>
+            {% endif %}
             {% if allowance and not book.downloaded and not page.book.already_requested %}
                 <p class="text-xs text-base-content/60">
                     {{ allowance.remaining }} of {{ allowance.limit }} requests left {{ allowance.period_label }}.

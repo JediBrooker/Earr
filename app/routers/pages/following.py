@@ -1,17 +1,28 @@
 """Following authors and series, so their new books are requested automatically."""
 
 import asyncio
+import json
 import uuid
-from typing import Annotated, Literal
+from typing import Annotated, Literal, cast
 
 from aiohttp import ClientSession
-from fastapi import APIRouter, Depends, Form, HTTPException, Security
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    Form,
+    HTTPException,
+    Request,
+    Security,
+)
 from pydantic import BaseModel
 from sqlmodel import Session
 
 from app.internal.audible.catalog import get_book_details
 from app.internal.audible.search import search_audible_books
+from app.internal.audiobookshelf.config import abs_config
 from app.internal.auth.authentication import DetailedUser, EarrAuth
+from app.internal.library_follows import follow_many, suggest_from_library
 from app.internal.automation_scheduler import lifespan
 from app.internal.follows import (
     check_follow,
@@ -48,6 +59,51 @@ def following(
         "Following.Index",
         user=user,
         follows=summaries(session, list_follows(session, user)),
+        abs_connected=abs_config.is_connected(session),
+    )
+
+
+@router.get("/hx-library")
+async def library_suggestions(
+    session: Annotated[Session, Depends(get_session)],
+    client_session: Annotated[ClientSession, Depends(get_connection)],
+    user: Annotated[DetailedUser, Security(EarrAuth())],
+):
+    """Series and authors already in Audiobookshelf, to follow in one go."""
+    return catalog_response(
+        "Following.LibrarySuggestions",
+        suggestions=await suggest_from_library(session, client_session, user),
+    )
+
+
+@router.post("/hx-follow-many")
+async def follow_selected(
+    request: Request,
+    background_task: BackgroundTasks,
+    user: Annotated[DetailedUser, Security(EarrAuth())],
+):
+    form = await request.form()
+    choices: list[tuple[FollowKindEnum, str, str]] = []
+    for raw in form.getlist("pick"):
+        if not isinstance(raw, str):
+            continue
+        try:
+            pick = cast(dict[str, object], json.loads(raw))
+            choices.append(
+                (
+                    FollowKindEnum(str(pick["kind"])),
+                    str(pick["id"]).strip(),
+                    str(pick["name"]).strip(),
+                )
+            )
+        except ValueError, KeyError, TypeError:
+            continue
+    if not choices:
+        return toast_response("Tick what to follow first", "info")
+    # each follow asks Audible, so they happen after the answer
+    background_task.add_task(follow_many, user.username, choices)
+    return toast_response(
+        f"Following {len(choices)}. New books will be requested as they come out."
     )
 
 

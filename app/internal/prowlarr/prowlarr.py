@@ -16,6 +16,7 @@ from app.internal.indexers.abstract import SessionContainer
 from app.internal.download_clients.config import apply_category
 from app.internal.library.config import library_config
 from app.internal.library.tracking import record_grab
+from app.internal.ranking.quality_extract import format_from_title
 from app.internal.models import (
     Audiobook,
     DownloadStatusEnum,
@@ -201,6 +202,9 @@ async def start_download(
             for b in same_books:
                 b.downloaded = True
                 b.download_status = DownloadStatusEnum.grabbed
+                if prowlarr_source:
+                    # what an upgrade has to beat
+                    b.quality_format = format_from_title(prowlarr_source.title)
                 session.add(b)
             session.commit()
 

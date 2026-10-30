@@ -109,19 +109,26 @@ async def extract_qualities(
 
     # TODO: use the magnet url to fetch the file information
 
-    file_format: FileFormat = "unknown"
-    if "mp3" in source.title.lower():
-        file_format = "mp3"
-    elif "flac" in source.title.lower():
-        file_format = "flac"
-    elif "m4b" in source.title.lower():
-        file_format = "m4b"
-    elif "audiobook" in source.title.lower():
-        file_format = "unknown-audio"
-
     return [
-        Quality(kbits=8 * source.size / book_seconds / 1000, file_format=file_format)
+        Quality(
+            kbits=8 * source.size / book_seconds / 1000,
+            file_format=format_from_title(source.title),
+        )
     ]
+
+
+def format_from_title(title: str) -> FileFormat:
+    """The audio format a release name says it is in."""
+    lowered = title.lower()
+    if "mp3" in lowered:
+        return "mp3"
+    if "flac" in lowered:
+        return "flac"
+    if "m4b" in lowered:
+        return "m4b"
+    if "audiobook" in lowered:
+        return "unknown-audio"
+    return "unknown"
 
 
 class _DecodedTorrent(BaseModel):

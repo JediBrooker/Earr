@@ -39,6 +39,12 @@ It is a fork of [AudioBookRequest](https://github.com/markbeep/AudioBookRequest)
 - **Transmission, Deluge and NZBGet**, alongside qBittorrent and SABnzbd.
 - **Request limits** per group or per person, and **sign in with Audiobookshelf** accounts.
 - **Backups and logs** on the System page.
+- **Follow what you own:** follow every series and author already in Audiobookshelf in one go.
+- **Up next:** the next book in each series people are listening to, and recommendations from what they listen to.
+- **Reading lists:** import a Goodreads or StoryGraph want-to-read shelf.
+- **Issues:** anyone can report a bad download, and an admin can replace it with another release.
+- **Quality upgrades:** keep looking for a better format, such as an M4B to replace an MP3.
+- **Stats:** who requests what, how each indexer does, and how long books take to arrive.
 - A Sonarr-style layout, a test suite, and images published to GitHub Container Registry on every push.
 
 ## Screenshots
@@ -125,6 +131,22 @@ It is a fork of [AudioBookRequest](https://github.com/markbeep/AudioBookRequest)
     </td>
   </tr>
   <tr>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="media/screenshots/issues-dark.png">
+        <img alt="Reported problems" src="media/screenshots/issues-light.png">
+      </picture>
+      <p align="center"><b>Issues</b>: problems people reported, fixed in a click</p>
+    </td>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="media/screenshots/stats-dark.png">
+        <img alt="Stats page" src="media/screenshots/stats-light.png">
+      </picture>
+      <p align="center"><b>Stats</b>: requests, indexers and time to library</p>
+    </td>
+  </tr>
+  <tr>
     <td width="50%" align="center">
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="media/screenshots/mobile-dark.png">
@@ -146,6 +168,10 @@ It is a fork of [AudioBookRequest](https://github.com/markbeep/AudioBookRequest)
   author. Request the books you're missing from a series in one go.
 - Follow an author or a series, and their new books are requested for you as soon as Audible lists them.
 - Request a book before it's out. The Calendar shows what's coming, and it's searched for on its release day.
+- See the next book in each series you're listening to in Audiobookshelf, and recommendations based on what you
+  listen to as well as what you request.
+- Import your Goodreads or StoryGraph want-to-read shelf, and pick which of the matching audiobooks to request.
+- Report a problem with a book, such as the wrong book or bad audio, and hear back when it's fixed.
 - Request books Audible doesn't sell, such as a LibriVox recording, with a manual request.
 - Get recommendations based on what you've requested, see what's popular on your server, and browse what's trending.
 - Follow your requests on the wishlist, and watch them download on the Activity page.
@@ -167,14 +193,17 @@ It is a fork of [AudioBookRequest](https://github.com/markbeep/AudioBookRequest)
 - Requests that haven't produced files are searched for again on a schedule, up to a number of attempts you set.
 - A release that failed, or that you remove from the queue, is blocklisted and the next best one is grabbed instead.
 - Releases that say they're in a language you don't want are never downloaded automatically.
+- Quality upgrades keep looking for a better format for a few weeks after a download, and swap the files when one
+  arrives.
+- Reported problems come with a one-click fix: blocklist the release and grab another, which replaces the bad files.
 - Finished downloads are filed into your library: hardlinked so torrents keep seeding, or copied or moved.
 - qBittorrent, Transmission, Deluge, SABnzbd and NZBGet integration finds exactly where a grab landed, and can move
   it into a category or label.
 - The Activity page shows each download's progress, speed and time left, the history of past downloads, and a manual
   import for downloads Earr couldn't match by itself.
 - The System page checks every connection and folder, including whether hardlinks can work, and a light in the
-  sidebar turns amber or red when something needs attention. It also takes daily database backups you can download
-  or restore, and shows recent log lines.
+  sidebar turns amber or red when something needs attention. It also has stats, takes daily database backups you can
+  download or restore, and shows recent log lines.
 - Audiobookshelf integration marks books you already own, adds each new book by scanning just its folder, and fills
   in metadata it's missing.
 - Notifications to any webhook: Apprise, Gotify, Discord, ntfy and so on.
@@ -280,6 +309,18 @@ What counts as new:
 To catch up on a series you started late, open any book in it and use **Request N missing**, which requests every book
 in the series that nobody has asked for and isn't in the library.
 
+With Audiobookshelf connected, **Suggest from my Audiobookshelf library** lists every series and author you already have
+books from, most books first, with the series ticked. **Follow the ticked ones** follows them all; the follows are set
+up in the background, since each one is looked up on Audible.
+
+#### Importing a reading list
+
+Under **Wishlist > Import**, upload the CSV export from Goodreads (My Books, Import and export, Export Library) or The
+StoryGraph (Manage account, Export StoryGraph Library). Every book on your want-to-read shelf is matched to an
+audiobook by title and author, in your preferred language, and listed with what's already in the library or requested.
+Untick any you don't want, then **Request the ticked books**. Request limits apply as usual, and up to 150 books are
+matched at a time.
+
 #### Pre-orders and the calendar
 
 A book that isn't out yet can be requested like any other: its button says **Pre-order**. Nothing is searched for until
@@ -311,6 +352,15 @@ days. Admins see everyone's, everyone else their own.
 A release is only downloaded automatically when it is in the bitrate range for its format, has enough seeders,
 matches the title or at least one author or narrator, isn't blocklisted, and isn't in a language you don't want. When
 nothing qualifies, nothing is grabbed and the book stays on the wishlist for you to look at.
+
+#### Upgrades
+
+The first release that clears the bar is often an MP3, because it's what exists on the day. Under `Settings > Download`,
+turn on **Look for upgrades**, pick the format that's **Good enough** (M4B by default) and how many days to keep
+looking (30). Every 6 hours, Earr searches again for books downloaded within that time in a worse format, each at most
+once a day, and grabs a release in a better format when one clears the same settings as any automatic download.
+"Better" follows the format order set above. When the upgrade reaches the library, the old audio files in the book's
+folder are removed; covers, `metadata.json` and anything else stay. The Activity queue marks these grabs **Upgrade**.
 
 #### Languages
 
@@ -468,6 +518,16 @@ curl -X POST http://localhost:8000/api/library/import \
 `asin_or_uuid` is the book's ASIN, or the id of a manual request. `source_path` has to be inside one of the completed
 downloads folders: give it as an absolute path, or relative to those folders.
 
+### Reporting problems
+
+Anyone can open a book that's in the library and choose **Report a problem**: the wrong book, bad audio, missing
+parts, or something else, with a note. Reports go to **Issues** in the sidebar, and `onIssueReported` is sent. People
+see their own reports there; admins see everyone's, with a count next to Issues.
+
+An admin can **Resolve** a report with a note, which sends `onIssueResolved` so whoever reported it can be told, or
+**Replace the download**. That blocklists the release the book came from and searches for another straight away. When
+the new release reaches the library it replaces the bad audio files, the same way an upgrade does.
+
 ### Audiobookshelf
 
 1. In Audiobookshelf, create an API token for an account that can see your audiobook library. An admin account is
@@ -486,6 +546,12 @@ Audiobookshelf left empty. Anything already set, including your own edits, is le
 Earr falls back to scanning the whole library. Starting a download, or marking a book as downloaded by hand, still
 asks for a full scan while **Use ABS to mark existing books as downloaded** is on.
 
+Earr also reads what each person is listening to, to recommend from it. The account is matched by username, or is the
+one they sign in with when [signing in with Audiobookshelf](#signing-in-with-audiobookshelf) is on. Discover then shows
+**Up next**, the next book in each series they're at least half way through, skipping books already on the shelf or
+asked for, and **For You** uses their recent listening alongside their requests and leaves out books already in the
+library. This reads other accounts' progress, so the API token needs to belong to an Audiobookshelf admin.
+
 **Library** in the sidebar shows everything in the selected Audiobookshelf library, newest first, with a search box,
 and opens a book in Audiobookshelf when you click it. Covers are fetched through Earr, so your browser never needs to
 reach Audiobookshelf directly. Without Audiobookshelf connected, the page lists the books Earr itself has placed in
@@ -493,7 +559,7 @@ the library.
 
 ### System: status, backups and logs
 
-**System** in the sidebar (admins only) has three tabs.
+**System** in the sidebar (admins only) has four tabs.
 
 **Status** checks everything Earr depends on: whether Prowlarr answers and has indexers
 enabled, whether each download client and Audiobookshelf can be reached with the details you entered, whether the
@@ -501,6 +567,10 @@ library folders exist and can be written to, and whether hardlinks can work betw
 that have waited more than a day and requests that failed. Each problem links to the page that fixes it, and the dot
 next to System turns amber or red when something needs attention. Results are reused for a minute; **Check again**
 runs the checks straight away.
+
+**Stats** shows how many books have been requested and reached the library, what share of downloads worked and the
+median time from grab to library, requests per month, the most requested authors, a row per person, and each
+indexer's success rate (recorded for grabs from this version on).
 
 **Backups** copies the SQLite database, which holds every setting, user, request and follow. A backup is taken every
 day and the last 7 are kept (both adjustable); **Back up now** takes one by hand, and those are kept until you delete
@@ -537,6 +607,8 @@ Events:
 | `onFailedDownload` | Prowlarr could not start the download. |
 | `onRequestApproved` | An admin approved a request from someone whose requests need approval. |
 | `onRequestDeclined` | An admin declined a request. `{declineReason}` holds the reason they gave. |
+| `onIssueReported` | Someone reported a problem with a book. `{issueKind}` and `{issueMessage}` say what. |
+| `onIssueResolved` | An admin resolved a reported problem. `{issueResolution}` says how. |
 
 <!-- END GENERATED: notification-events -->
 
@@ -547,6 +619,10 @@ Variables you can use in the body. Not every event has every variable; one that 
 | Variable | Value |
 | --- | --- |
 | `{declineReason}` | The reason an admin gave for declining a request |
+| `{issueKind}` | What kind of problem was reported, e.g. Bad audio |
+| `{issueMessage}` | What the reporter wrote about it |
+| `{issueReporter}` | Who reported the problem |
+| `{issueResolution}` | How an admin resolved it |
 | `{eventType}` | Name of the event, e.g. onNewRequest |
 | `{eventUser}` | First user who requested the book |
 | `{eventUserExtraData}` | That user's extra data, set under Settings > Users |

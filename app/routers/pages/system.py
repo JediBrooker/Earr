@@ -22,6 +22,8 @@ from app.internal.activity import pending_count
 from app.internal.auth.authentication import DetailedUser, EarrAuth
 from app.internal.env_settings import Settings
 from app.internal.health import get_report
+from app.internal.issues import open_count
+from app.internal.stats import build as build_stats
 from app.internal.models import GroupEnum
 from app.util.connection import get_connection
 from app.util.db import get_session
@@ -229,6 +231,14 @@ def download_logs(
     )
 
 
+@router.get("/stats")
+def stats_page(
+    session: Annotated[Session, Depends(get_session)],
+    admin_user: Annotated[DetailedUser, Security(EarrAuth(GroupEnum.admin))],
+):
+    return catalog_response("System.Stats", user=admin_user, stats=build_stats(session))
+
+
 @router.get("/hx-sidebar")
 async def sidebar(
     session: Annotated[Session, Depends(get_session)],
@@ -240,4 +250,5 @@ async def sidebar(
         "SidebarStatus",
         activity=pending_count(session, user),
         report=await get_report(session, client_session) if user.is_admin() else None,
+        issues=open_count(session) if user.is_admin() else 0,
     )

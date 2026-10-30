@@ -7,6 +7,7 @@ from . import (
     calendar,
     following,
     index,
+    issues,
     init,
     library,
     login,
@@ -27,6 +28,7 @@ router.include_router(book.router)
 router.include_router(calendar.router)
 router.include_router(following.router)
 router.include_router(index.router)
+router.include_router(issues.router)
 router.include_router(init.router)
 router.include_router(library.router)
 router.include_router(login.router)

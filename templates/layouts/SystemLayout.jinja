@@ -11,7 +11,7 @@
             System
         </h1>
         <p class="text-sm text-base-content/70">
-            Health checks, database backups and recent log lines.
+            Health checks, numbers, database backups and recent log lines.
         </p>
     </div>
     <div role="tablist" class="tabs tabs-box w-fit">
@@ -19,6 +19,10 @@
            href="{{ base_url }}/system/status"
            role="tab"
            class="tab {% if page == 'status' %}tab-active{% endif %}">Status</a>
+        <a preload
+           href="{{ base_url }}/system/stats"
+           role="tab"
+           class="tab {% if page == 'stats' %}tab-active{% endif %}">Stats</a>
         <a preload
            href="{{ base_url }}/system/backups"
            role="tab"

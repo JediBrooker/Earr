@@ -150,6 +150,52 @@ def organize(
     return target_dir
 
 
+AUDIO_SUFFIXES = (
+    ".mp3",
+    ".m4b",
+    ".m4a",
+    ".flac",
+    ".ogg",
+    ".oga",
+    ".opus",
+    ".aac",
+    ".wma",
+    ".wav",
+    ".aax",
+)
+
+
+def remove_replaced(target_dir: Path, keep: set[Path]) -> int:
+    """Deletes the audio files an upgrade or replacement made redundant.
+
+    Only audio is touched, and only what the new download didn't just put
+    there, so covers, metadata.json and anything else in the folder stay.
+    Returns how many files went.
+    """
+    removed = 0
+    for path in sorted(target_dir.rglob("*")):
+        if not path.is_file() or path.suffix.lower() not in AUDIO_SUFFIXES:
+            continue
+        if path.relative_to(target_dir) in keep:
+            continue
+        try:
+            path.unlink()
+            removed += 1
+        except OSError as e:
+            logger.warning(
+                "Library: could not remove a replaced file",
+                path=str(path),
+                error=str(e),
+            )
+    if removed:
+        logger.info(
+            "Library: removed the files an upgrade replaced",
+            target=str(target_dir),
+            files=removed,
+        )
+    return removed
+
+
 def _rollback(created: list[Path]) -> None:
     for path in reversed(created):
         try:

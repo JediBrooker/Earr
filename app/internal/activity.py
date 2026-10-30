@@ -72,6 +72,8 @@ class QueueItem(BaseModel):
     info: DownloadInfo | None
     requested_by: list[str]
     added_at: datetime
+    replaces: bool = False
+    """An upgrade or replacement of a book already in the library."""
 
     @property
     def percent(self) -> int:
@@ -231,6 +233,7 @@ async def queue(
             info=info,
             requested_by=requested_by,
             added_at=row.created_at,
+            replaces=row.replaces,
         )
 
     rows = _imports(session, user, pending=True)
