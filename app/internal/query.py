@@ -13,7 +13,7 @@ from app.internal.audiobookshelf.config import abs_config
 from app.internal.models import Audiobook, ManualBookRequest, ProwlarrSource
 from app.internal.prowlarr.prowlarr import query_prowlarr, start_download
 from app.internal.prowlarr.util import prowlarr_config
-from app.internal.ranking.download_ranking import rank_sources
+from app.internal.ranking.download_ranking import SourceVerdict, rank_sources
 from app.util.db import get_session
 from app.util.log import logger
 
@@ -37,10 +37,23 @@ class QueryResult(pydantic.BaseModel):
     book: Audiobook | ManualBookRequest
     state: Literal["ok", "querying", "uncached"]
     error_message: str | None = None
+    verdicts: list[SourceVerdict] | None = None
+    """Why each source ranked where it did, in the same order as `sources`."""
 
     @property
     def ok(self) -> bool:
         return self.state == "ok"
+
+    @property
+    def ranked(self) -> list[tuple[ProwlarrSource, SourceVerdict | None]]:
+        """Each source with its verdict, or None where the two do not line up."""
+        sources = self.sources or []
+        verdicts = self.verdicts or []
+        if len(verdicts) != len(sources):
+            return [(source, None) for source in sources]
+        return [
+            (source, verdict) for source, verdict in zip(sources, verdicts, strict=True)
+        ]
 
 
 async def query_sources(
@@ -104,6 +117,7 @@ async def query_sources(
                 )
                 return QueryResult(
                     sources=ranked.all,
+                    verdicts=ranked.verdicts,
                     book=book,
                     state="ok",
                     error_message=(
@@ -135,6 +149,7 @@ async def query_sources(
 
         return QueryResult(
             sources=ranked.all,
+            verdicts=ranked.verdicts,
             book=book,
             state="ok",
         )
