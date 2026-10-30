@@ -102,7 +102,10 @@ class Audiobook(BaseSQLModel, table=True):
     updated_at: datetime = Field(
         default_factory=datetime.now,
         sa_column=Column(
-            onupdate=func.now(),
+            # Python's clock, like every other timestamp the app writes. The
+            # database's now() is UTC on SQLite, which put updates hours off
+            # from creation times stored in local time.
+            onupdate=datetime.now,
             server_default=func.now(),
             type_=DateTime,
             nullable=False,
@@ -151,7 +154,10 @@ class AudiobookRequest(BaseSQLModel, table=True):
     updated_at: datetime = Field(
         default_factory=datetime.now,
         sa_column=Column(
-            onupdate=func.now(),
+            # Python's clock, like every other timestamp the app writes. The
+            # database's now() is UTC on SQLite, which put updates hours off
+            # from creation times stored in local time.
+            onupdate=datetime.now,
             server_default=func.now(),
             type_=DateTime,
             nullable=False,
@@ -220,7 +226,10 @@ class ManualBookRequest(BaseSQLModel, table=True):
     updated_at: datetime = Field(
         default_factory=datetime.now,
         sa_column=Column(
-            onupdate=func.now(),
+            # Python's clock, like every other timestamp the app writes. The
+            # database's now() is UTC on SQLite, which put updates hours off
+            # from creation times stored in local time.
+            onupdate=datetime.now,
             server_default=func.now(),
             type_=DateTime,
             nullable=False,
@@ -399,7 +408,10 @@ class LibraryImport(BaseSQLModel, table=True):
     updated_at: datetime = Field(
         default_factory=datetime.now,
         sa_column=Column(
-            onupdate=func.now(),
+            # Python's clock, like every other timestamp the app writes. The
+            # database's now() is UTC on SQLite, which put updates hours off
+            # from creation times stored in local time.
+            onupdate=datetime.now,
             server_default=func.now(),
             type_=DateTime,
             nullable=False,
