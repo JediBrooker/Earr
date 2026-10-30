@@ -1,0 +1,15 @@
+{#def
+    user: DetailedUser,
+#}
+
+<ActivityLayout user={{ user }} page="queue">
+<div id="queue"
+     hx-get="{{ base_url }}/activity/hx-queue"
+     hx-trigger="load"
+     hx-swap="outerHTML">
+    <p class="flex items-center gap-2 text-sm text-base-content/70">
+        <span class="loading loading-spinner loading-sm"></span>
+        Asking the download clients
+    </p>
+</div>
+</ActivityLayout>

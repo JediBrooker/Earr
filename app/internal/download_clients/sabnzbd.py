@@ -36,6 +36,25 @@ def _s(data: JsonObject, key: str) -> str:
     return str(value) if value is not None else ""
 
 
+def _seconds(timeleft: str) -> int | None:
+    """SABnzbd reports time left as "H:MM:SS", or "D:HH:MM:SS" past a day."""
+    try:
+        parts = [int(p) for p in timeleft.split(":")]
+    except ValueError:
+        return None
+    seconds = 0
+    for part, unit in zip(reversed(parts), (1, 60, 3600, 86400)):
+        seconds += part * unit
+    return seconds or None
+
+
+def _megabytes(value: str) -> int | None:
+    try:
+        return int(float(value) * 1024 * 1024) or None
+    except ValueError:
+        return None
+
+
 def _slots(payload: JsonObject, section: str) -> list[JsonObject]:
     block = payload.get(section)
     if not isinstance(block, dict):
@@ -179,6 +198,7 @@ class SabnzbdClient(DownloadClient):
     def _from_history(self, slot: JsonObject) -> DownloadInfo:
         status = _s(slot, "status").lower()
         name = _s(slot, "name")
+        size = int(_s(slot, "bytes") or 0) if _s(slot, "bytes").isdigit() else None
         if status == "completed":
             return DownloadInfo(
                 state=DownloadState.completed,
@@ -186,15 +206,25 @@ class SabnzbdClient(DownloadClient):
                 # where SABnzbd put the finished job
                 path=_s(slot, "storage") or None,
                 progress=1.0,
+                size=size,
+                status="completed",
             )
         if status in ("failed", "deleted"):
             return DownloadInfo(
                 state=DownloadState.failed,
                 name=name,
                 error=_s(slot, "fail_message") or status,
+                size=size,
+                status=status,
             )
         # still extracting or repairing
-        return DownloadInfo(state=DownloadState.downloading, name=name)
+        return DownloadInfo(
+            state=DownloadState.downloading,
+            name=name,
+            progress=1.0,
+            size=size,
+            status=status or None,
+        )
 
     def _from_queue(self, slot: JsonObject) -> DownloadInfo:
         percentage = _s(slot, "percentage") or "0"
@@ -206,4 +236,7 @@ class SabnzbdClient(DownloadClient):
             state=DownloadState.downloading,
             name=_s(slot, "filename") or _s(slot, "name"),
             progress=progress,
+            size=_megabytes(_s(slot, "mb")),
+            eta=_seconds(_s(slot, "timeleft")),
+            status=_s(slot, "status").lower() or None,
         )

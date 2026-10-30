@@ -1,0 +1,121 @@
+{#def
+    user: DetailedUser,
+    items: list[QueueItem],
+    organizing: bool,
+#}
+
+<div id="queue"
+     class="flex flex-col gap-4"
+     hx-get="{{ base_url }}/activity/hx-queue"
+     hx-trigger="every 5s"
+     hx-swap="outerHTML">
+    {% if not organizing %}
+        <div role="alert" class="alert">
+            <span class="stroke-info h-6 w-6 shrink-0">
+                <icons.InfoCircle />
+            </span>
+            <span>
+                Earr follows downloads while library organizing is on, because that is when it keeps track of
+                each grab.
+                {% if user.is_admin() %}
+                    <a preload class="link" href="{{ base_url }}/settings/library">Turn it on in Settings, Library</a>.
+                {% endif %}
+            </span>
+        </div>
+    {% endif %}
+    {% if not items %}
+        <div class="rounded-box border border-dashed border-base-content/20 p-10 text-center">
+            <p class="font-medium">
+                Nothing downloading
+            </p>
+            <p class="text-sm text-base-content/60">
+                Books show up here from the moment they go to the download client until they reach the library.
+            </p>
+        </div>
+    {% else %}
+        <div class="overflow-x-auto rounded-box border border-base-content/10">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>
+                            Book
+                        </th>
+                        <th>
+                            Progress
+                        </th>
+                        <th class="hidden md:table-cell">
+                            Size
+                        </th>
+                        <th class="hidden md:table-cell">
+                            Speed
+                        </th>
+                        <th>
+                            Time left
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                        <tr class="queue-item" data-state="{{ item.state }}">
+                            <td>
+                                <div class="flex items-center gap-3">
+                                    <div class="size-12 shrink-0 overflow-hidden rounded-md bg-base-200">
+                                        {% if item.cover_image %}
+                                            <img src="{{ item.cover_image }}" alt="" class="size-full object-cover" />
+                                        {% endif %}
+                                    </div>
+                                    <div class="min-w-0">
+                                        <p class="font-semibold line-clamp-1">
+                                            {{ item.title }}
+                                        </p>
+                                        <p class="text-xs text-base-content/60 line-clamp-1 break-all"
+                                           title="{{ item.release_title }}">
+                                            {{ item.release_title }}
+                                        </p>
+                                        {% if user.is_admin() and item.requested_by %}
+                                            <p class="text-xs text-base-content/60">
+                                                for {{ item.requested_by | join(", ") }}
+                                            </p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="min-w-52">
+                                {% if item.state == "downloading" or item.state == "importing" %}
+                                    <progress class="progress {% if item.state == 'importing' %}progress-success{% else %}progress-primary{% endif %} w-full"
+                                              value="{{ item.percent }}"
+                                              max="100"></progress>
+                                    <p class="text-xs text-base-content/70">
+                                        {% if item.state == "downloading" %}{{ item.percent }}% · {% endif %}{{ item.message }}
+                                    </p>
+                                {% elif item.state == "failed" %}
+                                    <p class="text-sm text-error">
+                                        {{ item.message }}
+                                    </p>
+                                {% else %}
+                                    <p class="text-sm text-base-content/60">
+                                        {{ item.message }}
+                                    </p>
+                                {% endif %}
+                                {% if item.client %}
+                                    <p class="text-xs text-base-content/50">
+                                        {{ item.client }}
+                                    </p>
+                                {% endif %}
+                            </td>
+                            <td class="hidden md:table-cell text-sm">
+                                {{ item.size_label }}
+                            </td>
+                            <td class="hidden md:table-cell text-sm">
+                                {{ item.speed_label }}
+                            </td>
+                            <td class="text-sm">
+                                {{ item.eta_label }}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>

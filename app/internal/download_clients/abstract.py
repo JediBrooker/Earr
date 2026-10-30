@@ -35,6 +35,14 @@ class DownloadInfo(BaseModel):
     progress: float = 0.0
     """0 to 1."""
     error: str | None = None
+    size: int | None = None
+    """Total size in bytes, when the client reports it."""
+    speed: int | None = None
+    """Current download speed in bytes per second."""
+    eta: int | None = None
+    """Seconds left, when the client can estimate it."""
+    status: str | None = None
+    """The client's own word for what the job is doing, e.g. "stalled" or "queued"."""
 
 
 class DownloadClient(ABC):

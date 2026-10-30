@@ -1,0 +1,78 @@
+{#def
+    user: DetailedUser,
+    items: list[HistoryItem],
+#}
+
+<ActivityLayout user={{ user }} page="history" title="Activity - History">
+{% if not items %}
+    <div class="rounded-box border border-dashed border-base-content/20 p-10 text-center">
+        <p class="font-medium">
+            No history yet
+        </p>
+        <p class="text-sm text-base-content/60">
+            Downloads that reached the library, or never did, are listed here.
+        </p>
+    </div>
+{% else %}
+    <div class="overflow-x-auto rounded-box border border-base-content/10">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>
+                        Book
+                    </th>
+                    <th>
+                        Result
+                    </th>
+                    <th class="hidden md:table-cell">
+                        Where it went
+                    </th>
+                    <th>
+                        When
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                    {% set status = item.status.value %}
+                    <tr>
+                        <td>
+                            <p class="font-semibold">
+                                {{ item.title }}
+                            </p>
+                            <p class="text-xs text-base-content/60 break-all">
+                                {{ item.release_title }}
+                            </p>
+                        </td>
+                        <td>
+                            {% if status == "imported" %}
+                                <span class="badge badge-sm badge-success">In library</span>
+                            {% elif status == "expired" %}
+                                <span class="badge badge-sm badge-warning"
+                                      title="The files never turned up">Not found</span>
+                            {% else %}
+                                <span class="badge badge-sm badge-error">Failed</span>
+                            {% endif %}
+                        </td>
+                        <td class="hidden md:table-cell">
+                            {% if item.target_path %}
+                                <p class="font-mono text-xs break-all">
+                                    {{ item.target_path }}
+                                </p>
+                            {% endif %}
+                            {% if item.error %}
+                                <p class="text-xs text-error break-all">
+                                    {{ item.error }}
+                                </p>
+                            {% endif %}
+                        </td>
+                        <td class="text-sm whitespace-nowrap">
+                            {{ item.when.strftime("%d %b %Y, %H:%M") }}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endif %}
+</ActivityLayout>

@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from . import (
+    activity,
     auth,
     index,
     init,
@@ -15,6 +16,7 @@ from . import (
 
 router = APIRouter()
 
+router.include_router(activity.router)
 router.include_router(auth.router)
 router.include_router(index.router)
 router.include_router(init.router)

@@ -1,0 +1,31 @@
+{#def
+    user: DetailedUser,
+    page: str,
+    title: str = "Activity",
+#}
+
+<BaseLayout title={{ title }} user={{ user }}>
+<div class="flex w-full flex-col gap-4 p-4 sm:p-6 lg:p-8">
+    <div>
+        <h1 class="text-3xl font-bold tracking-tight">
+            Activity
+        </h1>
+        <p class="text-sm text-base-content/70">
+            Downloads on their way to the library, and what happened to recent ones.
+        </p>
+    </div>
+    <div role="tablist" class="tabs tabs-box w-fit">
+        <a preload
+           href="{{ base_url }}/activity"
+           role="tab"
+           class="tab {% if page == 'queue' %}tab-active{% endif %}">Queue</a>
+        <a preload
+           href="{{ base_url }}/activity/history"
+           role="tab"
+           class="tab {% if page == 'history' %}tab-active{% endif %}">History</a>
+    </div>
+
+    {{ content }}
+
+</div>
+</BaseLayout>
