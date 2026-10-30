@@ -14,8 +14,9 @@ from aiohttp import ClientSession
 from pydantic import BaseModel
 from sqlmodel import Session
 
+from app.internal.audible.matching import book_key
 from app.internal.audiobookshelf.config import abs_config
-from app.internal.models import User
+from app.internal.models import Audiobook, User
 from app.util.connection import USER_AGENT
 from app.util.log import logger
 
@@ -31,6 +32,23 @@ class AbsSeriesBook(BaseModel):
     asin: str | None
     title: str
     sequence: str
+    author: str = ""
+
+
+class LibraryIndex(BaseModel):
+    """What is on the shelf, by ASIN and by title and author."""
+
+    asins: set[str] = set()
+    keys: set[str] = set()
+    """book_key() of every book, for those with no ASIN."""
+
+    def has(self, asin: str | None, title: str, authors: list[str]) -> bool:
+        if asin and asin in self.asins:
+            return True
+        return book_key(title, authors) in self.keys
+
+    def has_book(self, book: Audiobook) -> bool:
+        return self.has(book.asin, book.title, book.authors)
 
 
 class AbsSeries(BaseModel):
@@ -143,23 +161,36 @@ async def _library_pages(
     return results
 
 
-async def library_asins(session: Session, client_session: ClientSession) -> set[str]:
-    """The ASIN of every book in the library that has one."""
+async def library_index(
+    session: Session, client_session: ClientSession
+) -> LibraryIndex:
+    """Every book in the library, to tell whether something is already there."""
     library_id = abs_config.get_library_id(session)
     if not library_id or not abs_config.is_connected(session):
-        return set()
-    key = f"asins:{library_id}"
+        return LibraryIndex()
+    key = f"index:{library_id}"
     if (hit := _cached(key)) is not None:
-        return cast(set[str], hit)
+        return cast(LibraryIndex, hit)
     items = await _library_pages(
         session,
         client_session,
         f"api/libraries/{library_id}/items",
         {"minified": "1"},
     )
-    asins = {asin for item in items if (asin := _str(_metadata(item).get("asin")))}
-    _cache[key] = (time.time(), asins)
-    return asins
+    index = LibraryIndex()
+    for item in items:
+        metadata = _metadata(item)
+        if asin := _str(metadata.get("asin")):
+            index.asins.add(asin)
+        if title := _str(metadata.get("title")):
+            index.keys.add(book_key(title, _authors(metadata)))
+    _cache[key] = (time.time(), index)
+    return index
+
+
+async def library_asins(session: Session, client_session: ClientSession) -> set[str]:
+    """The ASIN of every book in the library that has one."""
+    return (await library_index(session, client_session)).asins
 
 
 def _sequence(item: Json, series_name: str) -> str:
@@ -192,6 +223,7 @@ async def library_series(
                 asin=_str(_metadata(item).get("asin")) or None,
                 title=_str(_metadata(item).get("title")),
                 sequence=_sequence(item, name),
+                author=next(iter(_authors(_metadata(item))), ""),
             )
             for item in (_dict(b) for b in _list(result.get("books")))
         ]

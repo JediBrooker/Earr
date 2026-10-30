@@ -5,6 +5,8 @@ start, and how far they got. A finished book in a series is the strongest
 signal there is: the next one.
 """
 
+import asyncio
+
 from aiohttp import ClientSession
 from sqlmodel import Session, select
 
@@ -15,7 +17,12 @@ from app.internal.audible.catalog import (
     sequence_key,
     series_sequence,
 )
-from app.internal.audiobookshelf.catalog import library_asins, listening_history
+from app.internal.audible.matching import find_on_audible
+from app.internal.audiobookshelf.catalog import (
+    AbsListenedBook,
+    library_index,
+    listening_history,
+)
 from app.internal.book_page import with_requests
 from app.internal.language import is_preferred
 from app.internal.models import Audiobook, AudiobookRequest, User
@@ -28,12 +35,29 @@ STARTED_ENOUGH = 0.5
 """Half way through a book counts as wanting the next one."""
 
 
+async def _asin(
+    session: Session, client_session: ClientSession, listened: AbsListenedBook
+) -> str | None:
+    """The book's ASIN, found on Audible by title and author if the library
+    has none."""
+    if listened.asin:
+        return listened.asin
+    found = await find_on_audible(
+        session,
+        client_session,
+        listened.title,
+        listened.authors[0] if listened.authors else "",
+    )
+    return found.asin if found else None
+
+
 async def listening_seeds(
     session: Session, client_session: ClientSession, user: User
 ) -> list[str]:
     """ASINs of the books this person listened to most recently."""
-    history = await listening_history(session, client_session, user)
-    return [b.asin for b in history if b.asin][:SEED_BOOKS]
+    history = (await listening_history(session, client_session, user))[:SEED_BOOKS]
+    found = await asyncio.gather(*(_asin(session, client_session, b) for b in history))
+    return [asin for asin in found if asin]
 
 
 async def up_next(
@@ -44,7 +68,7 @@ async def up_next(
     history = await listening_history(session, client_session, user)
     if not history:
         return []
-    owned = await library_asins(session, client_session)
+    owned = await library_index(session, client_session)
     mine = set(
         session.exec(
             select(AudiobookRequest.asin).where(
@@ -58,11 +82,12 @@ async def up_next(
     for listened in history:
         if len(picks) >= limit:
             break
-        if not listened.asin or not (
-            listened.finished or listened.progress >= STARTED_ENOUGH
-        ):
+        if not (listened.finished or listened.progress >= STARTED_ENOUGH):
             continue
-        details = await get_book_details(client_session, listened.asin)
+        asin = await _asin(session, client_session, listened)
+        if asin is None:
+            continue
+        details = await get_book_details(client_session, asin)
         series = details.primary_series if details else None
         if series is None or not series.sequence or series.asin in seen_series:
             continue
@@ -75,7 +100,7 @@ async def up_next(
         had = {
             series_sequence(p, series.asin)
             for p in editions
-            if p.asin in owned or p.asin in mine
+            if p.asin in mine or owned.has(p.asin, p.title, [a.name for a in p.authors])
         }
         current = sequence_key(series.sequence)
         candidates = [

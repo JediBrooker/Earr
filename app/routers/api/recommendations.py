@@ -17,7 +17,7 @@ from app.internal.recommendations.local import (
     get_popular_books,
     get_recently_requested_books,
 )
-from app.internal.audiobookshelf.catalog import library_asins
+from app.internal.audiobookshelf.catalog import library_index
 from app.internal.recommendations.listening import listening_seeds, up_next
 from app.internal.recommendations.user_recommendations import (
     AudiobookRecommendation,
@@ -48,7 +48,7 @@ async def get_user_recommendations(
         seed_asins=[*(seed_asins or []), *listened],
         limit=limit,
         offset=offset,
-        exclude_asins=await library_asins(session, client_session),
+        exclude=(await library_index(session, client_session)).has_book,
     )
     return recommendations
 

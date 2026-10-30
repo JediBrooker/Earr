@@ -14,6 +14,7 @@ from rapidfuzz import utils
 from sqlmodel import Session
 
 from app.internal.audible.catalog import get_book_details
+from app.internal.audible.matching import find_on_audible
 from app.internal.audiobookshelf.catalog import (
     AbsSeries,
     library_authors,
@@ -41,11 +42,31 @@ def _key(name: str) -> str:
     return utils.default_process(name)
 
 
+async def _book_asins(
+    session: Session, client_session: ClientSession, series: AbsSeries
+) -> list[str]:
+    """ASINs of up to two of the series' books, looking them up by title and
+    author on Audible when the library doesn't have them."""
+    asins = [b.asin for b in series.books if b.asin][:2]
+    if asins:
+        return asins
+    for book in series.books[:2]:
+        found = await find_on_audible(session, client_session, book.title, book.author)
+        if found is not None:
+            asins.append(found.asin)
+    return asins
+
+
 async def _resolve_series(
-    client_session: ClientSession, series: AbsSeries, limit: asyncio.Semaphore
+    session: Session,
+    client_session: ClientSession,
+    series: AbsSeries,
+    limit: asyncio.Semaphore,
 ) -> tuple[str, str] | None:
     """Audible's id and name for a series, from one of its books."""
-    for asin in [b.asin for b in series.books if b.asin][:2]:
+    async with limit:
+        asins = await _book_asins(session, client_session, series)
+    for asin in asins:
         async with limit:
             details = await get_book_details(client_session, asin)
         if details is None:
@@ -70,7 +91,7 @@ async def suggest_from_library(
     )[:MAX_SERIES]
     limit = asyncio.Semaphore(CONCURRENCY)
     resolved = await asyncio.gather(
-        *(_resolve_series(client_session, s, limit) for s in series)
+        *(_resolve_series(session, client_session, s, limit) for s in series)
     )
 
     suggestions: list[FollowSuggestion] = []
