@@ -257,9 +257,13 @@ class Config(BaseSQLModel, table=True):
 
 class EventEnum(str, Enum):
     on_new_request = "onNewRequest"
+    """Someone requested a book."""
     on_grabbed = "onGrabbed"
+    """A source was sent to the download client."""
     on_successful_download = "onSuccessfulDownload"
+    """The files are in the library. With the library organizer on, this waits until they have been placed; otherwise it fires right after the grab. Also sent when an admin marks a book as downloaded."""
     on_failed_download = "onFailedDownload"
+    """Prowlarr could not start the download."""
 
 
 class NotificationBodyTypeEnum(str, Enum):

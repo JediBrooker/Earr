@@ -42,5 +42,9 @@ test_format:
 test:
     uv run pytest
 
+# regenerate README.md: `tables`, `tables --check`, `images` or `all`
+readme what="all":
+    uv run --group readme python -m scripts.readme {{ what }}
+
 test_jinja:
     uv run app/util/test_jinjax.py templates/ -g content base_url json_regexp audible_regions version changelog getattr -f toJSstring

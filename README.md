@@ -1,161 +1,257 @@
-![GitHub Release](https://img.shields.io/github/v/release/markbeep/Earr?style=for-the-badge)
-![Python Version](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fmarkbeep%2FEarr%2Fmain%2Fpyproject.toml&style=for-the-badge&logo=python)
-[![Discord](https://img.shields.io/discord/1350874252282171522?style=for-the-badge&logo=discord&link=https%3A%2F%2Fdiscord.gg%2FSsFRXWMg7s)](https://discord.gg/SsFRXWMg7s)
+<p align="center">
+  <img src="media/feature.png" alt="Earr: audiobook requests for your whole household" width="100%">
+</p>
 
-![Header](/media/EarrIcon.png)
+<p align="center">
+  <a href="https://github.com/JediBrooker/Earr/actions/workflows/build.yaml"><img alt="Build" src="https://github.com/JediBrooker/Earr/actions/workflows/build.yaml/badge.svg?branch=main"></a>
+  <a href="https://github.com/JediBrooker/Earr/pkgs/container/earr"><img alt="Image: ghcr.io/jedibrooker/earr" src="https://img.shields.io/badge/image-ghcr.io%2Fjedibrooker%2Fearr-2496ED?logo=docker&logoColor=white"></a>
+  <a href="LICENSE"><img alt="License: GPL-3.0" src="https://img.shields.io/github/license/JediBrooker/Earr"></a>
+</p>
 
-Your tool for handling audiobook requests on a Plex/Audiobookshelf/Jellyfin instance.
+Earr is a request app for audiobooks, in the spirit of Overseerr and Jellyseerr. Everyone in your household
+searches Audible's catalogue and requests what they want to hear. Earr finds a release through Prowlarr, hands it to
+your download client, and files the finished book into your library for Audiobookshelf, Plex or Jellyfin to pick up.
 
-If you've heard of Overseer, Ombi, or Jellyseer; this is in the similar vein, <ins>but for audiobooks</ins>.
+It is a fork of [AudioBookRequest](https://github.com/markbeep/AudioBookRequest) by Markbeep. This fork adds:
 
-![Search Page](/media/search_page.png)
+- **Library organizing:** finished downloads are hardlinked, copied or moved into a folder structure you choose, with a
+  `metadata.json` that Audiobookshelf reads.
+- **Download tracking:** each request shows whether it was grabbed, landed in the library or failed, instead of
+  "downloaded" the moment it was sent to the client.
+- **qBittorrent and SABnzbd integration:** Earr asks the client where a grab ended up and can move it into a category.
+- **A stricter quality bar:** nothing is downloaded automatically unless it passes your settings, and the Sources page
+  shows why each release passes or fails.
+- **Retries:** requests that haven't produced files are searched for again on a schedule.
+- **Clearer search results:** cards show the series, narrators, year and length.
+- A Sonarr-style layout, a test suite, and images published to GitHub Container Registry on every push.
 
-## Table of Contents
+## Screenshots
 
-- [Motivation](#motivation)
-  - [Features](#features)
-  - [Out of Scope Features](#out-of-scope-features)
-- [Getting Started](#getting-started)
-  - [Quick Start](#quick-start)
-  - [Basic Usage](#basic-usage)
-    - [Auto download](#auto-download)
-    - [Audiobookshelf Integration](#audiobookshelf-integration)
-    - [Organizing Downloads](#organizing-downloads)
-    - [OpenID Connect](#openid-connect)
-      - [Getting locked out](#getting-locked-out)
-    - [Environment Variables](#environment-variables)
-- [Contributing](#contributing)
-  - [Conventional Commits](#conventional-commits)
-  - [Local Development](#local-development)
-- [Tools](#tools)
-
-# Motivation
-
-Earr aims to be a simple and lightweight tool for managing audiobook requests for your media server. It should be easy to set up and use, while integrating nicely with other common tools in the \*arr stack. Earr serves as as the frontend for you and your friends to easily make audiobook wishlists or create requests in an organized fashion.
-
-It is not intended as a full replacement for Readarr/Chaptarr, but instead intended to be used alongside them.
+<table>
+  <tr>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="media/screenshots/home-dark.png">
+        <img alt="Discover page with recommendations" src="media/screenshots/home-light.png">
+      </picture>
+      <p align="center"><b>Discover</b>: recommendations and what's trending</p>
+    </td>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="media/screenshots/search-dark.png">
+        <img alt="Search results" src="media/screenshots/search-light.png">
+      </picture>
+      <p align="center"><b>Search</b>: request with one click</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="media/screenshots/wishlist-dark.png">
+        <img alt="Wishlist of requests" src="media/screenshots/wishlist-light.png">
+      </picture>
+      <p align="center"><b>Wishlist</b>: every request and where it's at</p>
+    </td>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="media/screenshots/sources-dark.png">
+        <img alt="Ranked sources for a book" src="media/screenshots/sources-light.png">
+      </picture>
+      <p align="center"><b>Sources</b>: ranked releases, and why each passes or fails</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="media/screenshots/library-dark.png">
+        <img alt="Library settings with the folder structure preview" src="media/screenshots/library-light.png">
+      </picture>
+      <p align="center"><b>Library</b>: folder structure with a live preview</p>
+    </td>
+    <td width="50%" align="center">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="media/screenshots/mobile-dark.png">
+        <img alt="Search on a phone" src="media/screenshots/mobile-light.png" width="45%">
+      </picture>
+      <p align="center"><b>On your phone</b></p>
+    </td>
+  </tr>
+</table>
 
 ## Features
 
-- Employs the Audible API to make it easy to search for and request audiobooks.
-- Add manual audiobook requests for any books not available on Audible.
-- Easy user management. Only three assignable groups, made to get out of your way.
-- Automatic downloading of requests. Integrate Prowlarr to use all your existing indexer settings and download clients.
-- Send notifications to your favorite notification service (apprise, gotify, discord, ntfy, etc.).
-- Optionally copy, move or hardlink finished downloads into a folder structure of your choosing, e.g. `/Author/Series/Book`.
-- Single image deployment. You can deploy and create your first requests in under 5 minutes.
-- SQLite and Postgres support!
-- Lightweight website. No bulky javascript files, allowing you to use the website even on low bandwidth.
-- Mobile friendly. Search for books for accept requests on the go!
+**For everyone who requests books**
 
-## Out of Scope Features
+- Search Audible's catalogue by title, author or narrator, in any of Audible's 11 regions, with suggestions as you type.
+- See the series and position, narrators, release year and length on every result, so you pick the right edition.
+- Request with one click. Books that are already requested, or already in Audiobookshelf, are marked.
+- Request books Audible doesn't sell, such as a LibriVox recording, with a manual request.
+- Get recommendations based on what you've requested, see what's popular on your server, and browse what's trending.
+- Follow your requests on the wishlist: requested, grabbed, in the library or failed.
+- Use it on your phone, in a light or dark theme, or add it to your home screen like an app. Pages are rendered on the
+  server, so it stays quick on a slow connection.
 
-- Earr does **not** rename files nor edit metadata after downloads. Placing finished downloads into a folder structure is supported and opt-in, see [Organizing Downloads](#organizing-downloads), but everything beyond that is left to other tools. Earr also supports multiple REST API endpoints that allow for easy interoptability with scripts and other apps.
-  - Combinations:
-    - _Know of or have an app or script that works with Earr? Open an issue and I'll add it here or to the docs._
-  - Alternatives:
-    - [Listenarr](https://github.com/Listenarrs/Listenarr): A more all-in-one approach with built-in file organization.
-    - _I'd love to add more alternatives for Earr here. If you know of any good ones, open an issue!_
+**For the admin**
 
----
+- Three groups keep it simple: untrusted users' requests wait for you, trusted users' requests download straight away.
+- Prowlarr searches all your indexers and sends grabs to the download clients you already use, torrent or usenet.
+- Automatic downloads only take a release that clears your quality bar: a bitrate range for each format, a minimum
+  number of seeders, and a title or author match. If nothing clears it, nothing is grabbed.
+- The Sources page ranks every release and shows which checks it passes or fails, so you can pick one yourself.
+- Requests that haven't produced files are searched for again on a schedule, up to a number of attempts you set.
+- Finished downloads are filed into your library: hardlinked so torrents keep seeding, or copied or moved.
+- qBittorrent and SABnzbd integration finds exactly where a grab landed, and can move it into a category.
+- Audiobookshelf integration marks books you already own and rescans the library after a download.
+- Notifications to any webhook: Apprise, Gotify, Discord, ntfy and so on.
+- Forms login, HTTP basic auth or OpenID Connect, plus API keys for scripts.
+- SQLite out of the box, or Postgres.
 
-# Getting Started
+**What it leaves to other tools**
 
-Earr is intended to be deployed using Docker or Kubernetes. For "bare-metal" deployments, read up on [local development](https://github.com/JediBrooker/Earr/wiki/Local-Development) in the wiki.
+Earr doesn't rename audio files, edit their tags, or split, join or re-encode them. The folder it files a book into
+is named after the book, and everything inside is left as it was downloaded. Audiobookshelf reads the `metadata.json`
+Earr writes, so messy file names still end up with the right details. Earr doesn't watch authors for new releases
+either, so it works alongside Readarr or Chaptarr rather than replacing them. For an all-in-one tool that also
+organizes files, see [Listenarr](https://github.com/Listenarrs/Listenarr).
 
-## Quick Start
-
-Run the image directly:
+## Quick start
 
 ```bash
-docker run -p 8000:8000 -v $(pwd)/config:/config jedibrooker/earr:1
+docker run -d --name earr -p 8000:8000 -v "$PWD/config:/config" ghcr.io/jedibrooker/earr:latest
 ```
 
-Then head to http://localhost:8000.
+Open http://localhost:8000. The first page asks you to create the root admin and choose how people log in. Everything
+else is set up in the UI, and kept in `/config` along with the database.
 
-**NOTE:** Earr uses the `/config` directory inside the container for storing configs and data. Mount that directory locally somewhere to ensure persistent data across restarts.
-
-## Basic Usage
-
-1. Logging in the first time the login-type and root admin user has to be configured.
-2. Head to `Settings>Users` to create accounts for your friends.
-3. Any user can search for books and request them by clicking the `+` button.
-4. The admin can head to the wishlist to see all the books that have been requested.
-
-### Auto download
-
-Auto-downloading enables requests by `Trusted` and `Admin` users to directly start downloading once requested.
-
-1. Ensure your Prowlarr instance is correctly set up with any indexers and download clients you want. [More info](https://prowlarr.com/).
-2. On Prowlarr, head to `Settings>General` and copy the `API Key`.
-3. On Earr, head to `Settings>Prowlarr` and enter the API key as well as the base URL of your Prowlarr instance, i.e. `https://prowlarr.example.com`.
-4. Head to `Settings>Download` to configure the automatic download settings:
-   1. Enable `Auto Download` at the top.
-   2. The remaining heuristics determine the ranking of any sources retrieved from Prowlarr.
-   3. Indexer flags allow you to add priorities to certain sources like freeleeches.
-   4. `Keep searching for outstanding requests` retries requests that have not produced files yet,
-      including grabs that stalled. It uses the same quality rules, only applies to requests from
-      trusted users, and gives up after a configurable number of attempts so nothing retries forever.
-
-A source is only downloaded automatically if it clears the quality, seeder and title-match settings.
-If nothing does, nothing is grabbed and the book stays on the wishlist.
-
-### Audiobookshelf Integration
-
-Audiobookshelf (ABS) integration lets Earr:
-
-- Check if a book already exists in your ABS library and mark it as downloaded in search results to avoid duplicate requests.
-- Trigger a library scan in ABS when a request is marked as downloaded in Earr (manual or automatic), so the new item appears quickly.
-
-Setup steps:
-
-1. In ABS, create an API token for an account with access to your audiobook library (Admin recommended).
-2. In Earr, go to Settings > Audiobookshelf and enter:
-
-- Base URL of your ABS server (e.g. https://abs.example.com or http://localhost:13378)
-- API Token from step 1
-- Select the target Library
-- Enable “Use ABS to mark existing books as downloaded” if you want Earr to flag existing titles during search.
-
-Notes:
-
-- Earr searches ABS by ASIN and by “title + first author” to detect existing books; this is a best-effort match and may not catch every case depending on your metadata.
-- ABS is automatically asked to scan after successful downloads are marked in Earr. ABS typically auto-detects updates, but this helps pick up changes sooner.
-
-### Organizing Downloads
-
-Earr can place finished downloads into a folder structure of your choosing. This is off by default.
-
-Prowlarr hands grabs to your download client and never reports back, so Earr watches the folder your
-download client writes finished downloads to and matches new items there against the releases it
-grabbed. Both folders therefore have to be mounted into the Earr container.
+With Docker Compose:
 
 ```yaml
 services:
   earr:
-    image: jedibrooker/earr:1
+    image: ghcr.io/jedibrooker/earr:latest
+    container_name: earr
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      TZ: Etc/UTC
     volumes:
       - ./config:/config
-      # the same paths your download client uses, so hardlinks work
-      - /mnt/data/downloads:/downloads
-      - /mnt/data/audiobooks:/audiobooks
+      # only needed to organize the library: mount the folder your download
+      # clients and your library live in, at the same path they use
+      - /data:/data
 ```
 
-Head to `Settings>Library` and configure:
+The `/data` mount is only needed for [organizing the library](#organizing-the-library). For hardlinks to work, the
+downloads and the library have to be on one filesystem, mounted as one volume, at the same path in every container.
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) walks through a full setup.
 
-1. **Organize downloads** to turn the feature on.
-2. **Mode**:
-   - `hardlink` keeps a single copy on disk and lets torrents keep seeding. Both folders have to be on
-     the same filesystem, which for Docker means the same volume mount, not two separate mounts.
-   - `copy` uses twice the space but works everywhere.
-   - `move` frees up the download folder but breaks seeding.
-3. **Completed downloads folder** and **Library folder**, as seen from inside the container.
-4. **Folder structure**, see below.
+Images are tagged `latest` on every push to `main`, and `sha-<commit>` so you can pin a build or roll back. Tagged
+releases also get version tags. To update:
 
-#### Folder structure
+```bash
+docker compose pull
+```
 
-The folder structure is a `/` separated template. Placeholders are replaced with the metadata of
-the book:
+```bash
+docker compose up -d
+```
+
+## Setup
+
+### Users and groups
+
+| Group | Can |
+| --- | --- |
+| Untrusted | Search, request books and follow their requests. Their requests wait until an admin starts a download. |
+| Trusted | The same, but their requests download automatically when **Auto Download** is on, and they can start an automatic download from the wishlist. |
+| Admin | Everything: the Sources page, marking books as downloaded, users and settings. |
+
+Create accounts under `Settings > Users`. The root admin is the account made on first start. Set
+`EARR_APP__INIT_ROOT_USERNAME` and `EARR_APP__INIT_ROOT_PASSWORD` to create it without the setup page.
+
+### Prowlarr and automatic downloads
+
+1. In Prowlarr, copy the API key from `Settings > General`.
+2. In Earr, open `Settings > Prowlarr` and enter the **API Key** and the **Base URL**, for example
+   `http://prowlarr:9696`. Pick the **Categories** to search (Audio/Audiobook, `3030`, by default) and, optionally,
+   limit the search to some **Indexers**.
+3. Open `Settings > Download`:
+   - **Auto Download** starts a download as soon as a trusted user or an admin requests a book.
+   - The bitrate range for each format (flac, m4b, mp3, unknown audio, unknown) decides which releases are acceptable.
+   - **Min Seeders** applies to torrents.
+   - **Author/Narrator Similarity Ratio** and **Title Similarity Ratio** decide how closely a release name has to match.
+   - Indexer flags with a score move releases up or down, for example `freeleech` with a score of 5.
+   - **Keep searching for outstanding requests** searches again for requests that haven't produced files, including
+     grabs that stalled. It only covers requests from trusted users and admins, runs every **Retry every** seconds
+     (6 hours by default), and stops after **Give up after** attempts.
+4. MyAnonamouse users can add their session ID under `Settings > Indexers`. Earr then reads authors, narrators, file
+   type and freeleech status from MyAnonamouse, which makes matching more accurate.
+
+A release is only downloaded automatically when it is in the bitrate range for its format, has enough seeders, and
+matches the title or at least one author or narrator. When nothing qualifies, nothing is grabbed and the book stays on
+the wishlist for you to look at.
+
+#### How sources are ranked
+
+The Sources page, opened from a request on the wishlist, shows every release Prowlarr found, best first. Releases are
+compared on, in order:
+
+1. whether they clear the settings above
+2. title match
+3. how many of the authors they name
+4. how many of the narrators they name
+5. format, in the order flac, m4b, mp3, unknown audio, unknown
+6. indexer flag scores
+7. indexer priority
+8. subtitle match
+9. seeders
+10. age: older torrents and newer usenet posts first
+
+Each release shows a **meets settings** or **fails settings** badge, followed by its checks: the title match, authors,
+narrators, format and bitrate, seeders and any scored flags. A red ✗ is the reason a release is never downloaded
+automatically. A grey ✗ only lowers its rank. Hover over a check for details. You can still send any release to the
+download client by hand.
+
+The bitrate is an estimate: the size of the whole release divided by the book's length. Extras such as PDFs or cover
+art make it look higher than it is. The format is read from the release name.
+
+### Download clients
+
+Without a download client configured, Earr finds a finished download by matching the release name against the folders
+in your completed downloads folder. That fails when the client renames the folder. Under
+`Settings > Library > Download clients` you can add:
+
+- **qBittorrent**: URL, username and password. Torrents are looked up by their info hash, so the match is exact.
+- **SABnzbd**: URL and API key. Jobs are matched by name in the queue and history.
+
+Pick a **category** for each client to move Earr's grabs into. Prowlarr chooses the category when it sends a release
+and can't be told otherwise, so Earr changes it afterwards. The category has to exist in the client already, because
+its save path is what makes it useful: in qBittorrent with Automatic Torrent Management on, changing the category
+moves the files. **Test connection** checks both clients.
+
+### Organizing the library
+
+Under `Settings > Library`:
+
+- **Organize downloads** turns it on.
+- **Mode**: `hardlink` keeps one copy on disk and lets torrents keep seeding, but needs the downloads and the library on
+  the same filesystem. `copy` works everywhere but uses twice the space. `move` frees the download folder but stops
+  seeding.
+- **Completed downloads folders**: where your clients put finished downloads, one per line, as Earr sees them. With a
+  download client configured, these are only a fallback.
+- **Library folder**: the root of your audiobook library.
+- **Folder structure**: a template for the folder each book goes into. The page previews it as you type.
+- **Scan interval** and **Match threshold**: how often Earr looks for finished downloads, and how closely a folder
+  name has to match the release when there's no client to ask.
+- **Write metadata.json** (on by default) writes the title, subtitle, authors, narrators, series and ASIN for
+  Audiobookshelf.
+- **Overwrite existing files** (off by default) lets a new download replace files already in the library, including an
+  existing `metadata.json`.
+
+Placeholders you can use in the folder structure:
+
+<!-- BEGIN GENERATED: placeholders -->
 
 | Placeholder | Value |
 | --- | --- |
@@ -164,93 +260,258 @@ the book:
 | `{title}` | Book title |
 | `{subtitle}` | Book subtitle |
 | `{series}` | Series name, empty if the book is standalone |
-| `{series_position}` | Position within the series, e.g. `1` or `2.5` |
+| `{series_position}` | Position within the series, e.g. 1 or 2.5 |
 | `{narrator}` | First narrator |
 | `{narrators}` | All narrators, comma separated |
 | `{year}` | Release year |
 | `{asin}` | Audible ASIN, or the request id for manual requests |
 
+<!-- END GENERATED: placeholders -->
+
 Two rules keep templates short:
 
-- A folder that would end up empty is left out, so `{author}/{series}/{title}` becomes
-  `Andy Weir/The Martian` for a book that is not part of a series.
-- Text in square brackets disappears as a whole when a placeholder inside it is empty, which makes
-  `[{series_position} - ]{title}` render as just the title for standalone books.
-- A `|` inside those brackets adds a fallback, so `[{series} #{series_position}|{title}]` names the
-  folder after the series for a series book and after the title for a standalone one.
+- A folder that would be empty is left out, so `{author}/{series}/{title}` becomes `Andy Weir/The Martian` for a book
+  that isn't part of a series.
+- Text in square brackets disappears when a placeholder inside it is empty, so `[{series_position} - ]{title}` is
+  just the title for a standalone book. A `|` inside the brackets adds a fallback:
+  `[{series} #{series_position}|{title}]` uses the series for a series book and the title otherwise.
 
-| Template | Series book | Standalone book |
+<!-- BEGIN GENERATED: template-examples -->
+
+| Template | Part of a series | Standalone book |
 | --- | --- | --- |
 | `{author}/{title}` | `Brandon Sanderson/The Way of Kings` | `Andy Weir/The Martian` |
 | `{author}/{series}/{title}` | `Brandon Sanderson/The Stormlight Archive/The Way of Kings` | `Andy Weir/The Martian` |
 | `{author}/{series}/[{series_position} - ]{title}` | `Brandon Sanderson/The Stormlight Archive/1 - The Way of Kings` | `Andy Weir/The Martian` |
-| `{author}/{title} ({year})` | `Brandon Sanderson/The Way of Kings (2010)` | `Andy Weir/The Martian (2013)` |
 | `{author}/[{series} #{series_position}\|{title}]` | `Brandon Sanderson/The Stormlight Archive #1` | `Andy Weir/The Martian` |
+| `{author}/{title} ({year})` | `Brandon Sanderson/The Way of Kings (2010)` | `Andy Weir/The Martian (2013)` |
+| `{series}/{author} - {title}` | `The Stormlight Archive/Brandon Sanderson - The Way of Kings` | `Andy Weir - The Martian` |
 
-The settings page previews both cases while you type. File names inside the folder are left alone.
+<!-- END GENERATED: template-examples -->
 
-#### Metadata
+Audible doesn't always say which series a book belongs to, and the position is read from the subtitle, so it can be
+missing. Manual requests never have a series.
 
-With **Write metadata.json** enabled (the default), the title, subtitle, authors, narrators, series
-and ASIN are written into the organized folder as a `metadata.json`. Audiobookshelf reads that file
-and prefers it over what it can infer from file and folder names, so a release with messy file names
-still ends up with the right metadata. Only fields Earr actually knows are written, and an existing
-`metadata.json` is left alone unless **Overwrite existing files** is on, so anything corrected by
-hand in ABS survives a re-import.
+A download is only organized once it has stopped changing and has no partial files left. **Recent downloads** at the
+bottom of the page shows each grab: waiting, organized, failed, or not found when it never showed up within 14 days.
+To organize one by hand, for example after the client renamed it beyond recognition, call the API:
 
-Notes:
+```bash
+curl -X POST http://localhost:8000/api/library/import \
+  -H "Authorization: Bearer $EARR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"asin_or_uuid": "B003ZWFO1X", "source_path": "/data/torrents/audiobooks/03 Way of Kings"}'
+```
 
-- Audible does not always expose series information. The series position is read from the subtitle
-  and may be missing for some books. Manual requests never have a series.
-- A download is only picked up once it stopped changing and has no partial files left.
-- Existing files are never replaced unless **Overwrite existing files** is turned on.
-- If a download is not picked up because the download client renamed it, lower the **Match
-  threshold**, or use `POST /api/library/import` with the ASIN and the path to organize it by hand.
+`asin_or_uuid` is the book's ASIN, or the id of a manual request. `source_path` has to be inside one of the completed
+downloads folders: give it as an absolute path, or relative to those folders.
 
-### OpenID Connect
+### Audiobookshelf
 
-Head to the [OpenID Connect](https://github.com/JediBrooker/Earr/wiki/OpenID-Connect) page in the wiki to learn how to set up OIDC authentication with your favorite auth provider.
+1. In Audiobookshelf, create an API token for an account that can see your audiobook library. An admin account is
+   simplest.
+2. In Earr, open `Settings > Audiobookshelf` and enter the **API Token** and the **Base URL**, for example
+   `http://audiobookshelf:13378`, then pick the **Library**.
+3. Turn on **Use ABS to mark existing books as downloaded** to have search results show books you already own.
 
-### Environment Variables
+Earr matches books by ASIN, or by title and first author when the ASIN is missing, so a book with sparse metadata in
+Audiobookshelf can be missed. After a download starts, and when a book is marked as downloaded, Earr asks
+Audiobookshelf to scan the library so new books show up sooner.
 
-Head to the [environment variables](https://github.com/JediBrooker/Earr/wiki/Environment-Variables) page in the wiki.
+### Notifications
 
----
+Under `Settings > Notifications`, add a webhook: a **Name**, the **Event** that sends it, the **Notification URL**, a
+**Body Type** of `text` or `json`, the **Body**, and optional **Headers** as JSON. That covers Apprise, Gotify,
+Discord, ntfy and most other services. Each notification can be tested from the list.
 
-# Deployment
+For example, a Discord webhook with a `json` body:
 
-Building, shipping and configuring this fork, including the storage layout the
-library organizer needs: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+```json
+{"content": "{eventUser} requested {bookTitle} by {bookAuthors}"}
+```
 
-# Contributing
+Events:
 
-Please read the [contribution guidelines](?tab=contributing-ov-file) before contributing.
+<!-- BEGIN GENERATED: notification-events -->
 
-## Conventional Commits
+| Event | Sent when |
+| --- | --- |
+| `onNewRequest` | Someone requested a book. |
+| `onGrabbed` | A source was sent to the download client. |
+| `onSuccessfulDownload` | The files are in the library. With the library organizer on, this waits until they have been placed; otherwise it fires right after the grab. Also sent when an admin marks a book as downloaded. |
+| `onFailedDownload` | Prowlarr could not start the download. |
 
-This project uses [Conventional Commits](https://www.conventionalcommits.org) to allow for a more organized commit history and support automated changelog generation. Pull requests will be squashed in most cases (with some exceptions).
+<!-- END GENERATED: notification-events -->
 
-## Local Development
+Variables you can use in the body. Not every event has every variable; one that doesn't apply is left as written.
 
-Head to the [local development](https://github.com/JediBrooker/Earr/wiki/Local-Development) page in the wiki.
+<!-- BEGIN GENERATED: notification-variables -->
 
-# Tools
+| Variable | Value |
+| --- | --- |
+| `{eventType}` | Name of the event, e.g. onNewRequest |
+| `{eventUser}` | First user who requested the book |
+| `{eventUserExtraData}` | That user's extra data, set under Settings > Users |
+| `{joinedUsers}` | Everyone who requested the book, comma separated |
+| `{joinedUsersExtraData}` | Their extra data, comma separated |
+| `{bookTitle}` | Book title |
+| `{bookAuthors}` | Authors, separated by commas |
+| `{bookNarrators}` | Narrators, separated by commas |
+| `{bookCover}` | Cover image URL, or a placeholder image when there is none |
+| `{bookASIN}` | Audible ASIN |
+| `{sourceTitle}` | Name of the release that was grabbed |
+| `{sourceSizeMB}` | Size of that release in MB |
+| `{sourceProtocol}` | torrent or usenet |
+| `{indexerName}` | Indexer the release came from |
+| `{torrentInfoHash}` | Info hash, for torrents |
+| `{targetPath}` | Folder the book was organized into |
+| `{errorStatus}` | HTTP status Prowlarr answered with |
+| `{errorReason}` | Reason Prowlarr gave |
 
-Earr builds on top of a some other great open-source tools. A big thanks goes out to these developers.
+<!-- END GENERATED: notification-variables -->
 
-- [Prowlarr](https://github.com/Prowlarr/Prowlarr) - Does a lot of the heavy lifting concerning searching through indexers and forwarding download requests to download clients. Saves me the ordeal of having to reimplement everything again.
-- [External Audible API](https://audible.readthedocs.io/en/latest/misc/external_api.html) - Audible exposes key API endpoints which are used to, for example, search for books.
+### Login and OpenID Connect
 
-## Tests
+Pick the login type under `Settings > Security`:
 
-```sh
+- **Forms**: a login page and a session cookie.
+- **Basic**: the browser's own login dialog.
+- **OpenID Connect**: log in with your identity provider, such as Authentik, Authelia or Keycloak.
+- **None**: no login at all; everyone is the root admin. Only use this behind your own authentication.
+
+`EARR_APP__FORCE_LOGIN_TYPE` pins the login type so it can't be changed in the UI.
+
+To set up OpenID Connect, create a client with your provider using the redirect URI `https://<your-host>/auth/oidc`
+(with your base URL in front of `/auth` if Earr runs under a sub path). Then fill in the client ID and secret, the
+provider's `.well-known/openid-configuration` URL, the scopes, and the username claim. Users are created the first
+time they log in.
+
+- **Group claim**: a claim listing the user's groups, as a list or a space-separated string. A group named `admin`,
+  `trusted` or `untrusted` sets the user's group on every login. The root admin's group is never changed.
+- **Redirect scheme**: `auto` works out `http` or `https` from the request, which needs
+  `EARR_APP__FORWARDED_ALLOW_IPS` set when Earr is behind a reverse proxy. Set `https` or `http` to force one.
+
+If a change on the provider's side locks you out, go to `/login?backup=1` and log in with the root admin's username
+and password to fix the settings.
+
+### Reverse proxy
+
+- To serve Earr under a sub path such as `https://example.com/earr`, set `EARR_APP__BASE_URL=/earr`.
+- Set `EARR_APP__FORWARDED_ALLOW_IPS` to your proxy's IP address so Earr trusts its `X-Forwarded-*` headers. The
+  default only trusts `127.0.0.1`.
+
+### Environment variables
+
+Most settings live in the UI. These are read from the environment:
+
+<!-- BEGIN GENERATED: env -->
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `EARR_APP__DEBUG` | `false` | Development mode: detailed error pages, no caching of static files, and missing frontend scripts are downloaded at startup. |
+| `EARR_APP__OPENAPI_ENABLED` | `false` | Serves the interactive API docs at /docs and the schema at /openapi.json. |
+| `EARR_APP__CONFIG_DIR` | `/config` | Where the database and other state are kept. |
+| `EARR_APP__PORT` | `8000` | Port the Docker image listens on. |
+| `EARR_APP__VERSION` | `local` | Version shown in the UI. Set by the image build. |
+| `EARR_APP__LOG_LEVEL` | `INFO` | Log level, e.g. DEBUG, INFO or WARNING. |
+| `EARR_APP__BASE_URL` |  | Path prefix when served from a sub path behind a reverse proxy, e.g. /earr. |
+| `EARR_APP__DISABLE_CENSOR` | `false` | Log usernames in full instead of partly masked. |
+| `EARR_APP__FORWARDED_ALLOW_IPS` | `127.0.0.1` | Trusted proxy IPs for forwarded headers. Used by Uvicorn's --forwarded-allow-ips. |
+| `EARR_APP__DEFAULT_REGION` | `us` | Default region used in the search |
+| `EARR_APP__FORCE_LOGIN_TYPE` |  | Forces the login type used. If set, the login type cannot be changed in the UI. |
+| `EARR_APP__INIT_ROOT_USERNAME` |  | Creates this root admin on first start instead of showing the setup page. Needs EARR_APP__INIT_ROOT_PASSWORD too. |
+| `EARR_APP__INIT_ROOT_PASSWORD` |  | Password for the root admin created from EARR_APP__INIT_ROOT_USERNAME. |
+| `EARR_DB__SQLITE_PATH` | `db.sqlite` | Relative path to the sqlite database given the config directory. If absolute, it ignores the config dir location. |
+| `EARR_DB__USE_POSTGRES` | `false` | Use Postgres instead of SQLite. The postgres_* settings only apply when this is on. |
+| `EARR_DB__POSTGRES_HOST` | `localhost` | Postgres host name. |
+| `EARR_DB__POSTGRES_PORT` | `5432` | Postgres port. |
+| `EARR_DB__POSTGRES_DB` | `earr` | Postgres database name. |
+| `EARR_DB__POSTGRES_USER` | `earr` | Postgres user. |
+| `EARR_DB__POSTGRES_PASSWORD` | `password` | Postgres password. |
+| `EARR_DB__POSTGRES_SSL_MODE` | `prefer` | Postgres sslmode, e.g. disable, prefer or require. |
+
+<!-- END GENERATED: env -->
+
+### API
+
+Everything the UI does is also available under `/api`. Create a key under `Settings > Account > API Keys` and send it
+as a bearer token:
+
+```bash
+curl -H "Authorization: Bearer $EARR_API_KEY" "http://localhost:8000/api/search?q=project%20hail%20mary"
+```
+
+Set `EARR_APP__OPENAPI_ENABLED=true` to browse the endpoints at `/docs`.
+
+## Development
+
+The project uses [uv](https://docs.astral.sh/uv/) and [just](https://just.systems). The devcontainer has everything
+installed, or install them with [mise](https://mise.jdx.dev): `mise install`.
+
+```bash
+uv sync
+```
+
+```bash
+just install_daisy
+```
+
+```bash
+just dev
+```
+
+`just dev` runs the migrations and starts the app on http://localhost:8000 with the settings in `.env.local`. Run
+`just tailwind` alongside it to rebuild the CSS as you edit templates. The `docker-compose.yml` in the repository
+starts Postgres and Gotify for testing those integrations.
+
+Checks, which CI also runs:
+
+```bash
 just test          # pytest
 just types         # basedpyright
 just test_format   # djlint + ruff
 just test_jinja    # jinjax template parameters
-just check_migrations
 ```
 
-Tests live in `tests/` and run against an in-memory SQLite database and real
-temporary directories, so the file operations are exercised for real rather
-than mocked.
+The tests use an in-memory SQLite database and real temporary folders, so file operations are tested for real.
+Migrations are checked against SQLite and Postgres in CI.
+
+Read [CONTRIBUTING](.github/CONTRIBUTING.md) before opening a pull request. Commits follow
+[Conventional Commits](https://www.conventionalcommits.org).
+
+### This README
+
+Parts of this README are generated, so they can't drift from the code:
+
+- The tables between `<!-- BEGIN GENERATED -->` and `<!-- END GENERATED -->` markers are built from the code:
+  environment variables and their docstrings in `app/internal/env_settings.py`, the folder structure placeholders and
+  examples, and the notification events and variables. Edit the code, not the table.
+- The screenshots and `media/feature.png` are taken from a demo instance with books from Audible and a stand-in
+  Prowlarr. The feature graphic's layout lives in `media/brand/feature.html`. `media/logo.png` is rendered from the
+  app's own icon, `static/favicon.svg`, which `just icons` draws from `scripts/icons.py` along with every other icon
+  size.
+
+The [README workflow](.github/workflows/readme.yaml) runs on every push to `main` that touches the app. It rebuilds the
+tables, retakes the screenshots when templates, styles or `media/brand/` changed, and commits the result. With an
+`ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` repository secret, Claude also updates the prose for user-visible
+changes, following [scripts/readme/prose.md](scripts/readme/prose.md). It can also be run by hand from the Actions tab.
+
+To do the same locally (screenshots need a network connection for Audible):
+
+```bash
+just readme tables
+```
+
+```bash
+just readme images
+```
+
+## Credits and license
+
+Earr is a fork of [AudioBookRequest](https://github.com/markbeep/AudioBookRequest) by Markbeep and its contributors,
+and like it is licensed under the [GPL-3.0](LICENSE).
+
+It builds on [Prowlarr](https://github.com/Prowlarr/Prowlarr), which does the heavy lifting of searching indexers and
+talking to download clients, and on Audible's
+[public catalogue API](https://audible.readthedocs.io/en/latest/misc/external_api.html). Earr isn't affiliated with or
+endorsed by Audible or Amazon.
