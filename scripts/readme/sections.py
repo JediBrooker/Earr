@@ -145,6 +145,7 @@ def notification_events() -> str:
 # Descriptions for the variables found in the code. A variable that is missing
 # here is still listed, just without a description.
 VARIABLE_HINTS: dict[str, str] = {
+    "declineReason": "The reason an admin gave for declining a request",
     "eventType": "Name of the event, e.g. onNewRequest",
     "eventUser": "First user who requested the book",
     "eventUserExtraData": "That user's extra data, set under Settings > Users",

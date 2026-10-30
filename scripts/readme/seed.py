@@ -5,13 +5,14 @@ throwaway folder, because the app builds its database engine at import time.
 
 Reads:
     EARR_DEMO_PASSWORD  password of the admin "alex", who takes the screenshots
-    EARR_DEMO_PROWLARR  URL of the Prowlarr stub
+    EARR_DEMO_PROWLARR  URL of the stub, which stands in for Prowlarr and qBittorrent
     EARR_DEMO_OUT       file to write a JSON summary to, for the stub and capture
 
 Books come from the real Audible catalogue, so covers and metadata are real.
 """
 
 import asyncio
+import hashlib
 import json
 import os
 import re
@@ -38,6 +39,7 @@ from app.internal.models import (
     ManualBookRequest,
     OrganizeModeEnum,
 )
+from app.internal.download_clients.config import download_client_config
 from app.internal.prowlarr.util import prowlarr_config
 from app.internal.ranking.quality import IndexerFlag, quality_config
 from app.util.db import engine
@@ -180,6 +182,10 @@ def seed(session: Session, books: dict[str, Audiobook], password: str) -> None:
     quality_config.set_auto_download(session, True)
     quality_config.set_indexer_flags(session, [IndexerFlag(flag="freeleech", score=5)])
 
+    # the Prowlarr stand-in answers for qBittorrent too, so Activity shows progress
+    download_client_config.set_qbit_enabled(session, True)
+    download_client_config.set_qbit_url(session, os.environ["EARR_DEMO_PROWLARR"])
+
     library_config.set_enabled(session, True)
     library_config.set_mode(session, OrganizeModeEnum.hardlink)
     library_config.set_download_dirs(session, f"{TORRENTS}\n{USENET}")
@@ -191,7 +197,11 @@ def seed(session: Session, books: dict[str, Audiobook], password: str) -> None:
         book = books[wanted.key]
         when = now - timedelta(days=wanted.days_ago)
         book.download_status = wanted.status
-        book.downloaded = wanted.status == DownloadStatusEnum.downloaded
+        # as the app does it: a grab counts as downloaded until the files fail to arrive
+        book.downloaded = wanted.status in (
+            DownloadStatusEnum.grabbed,
+            DownloadStatusEnum.downloaded,
+        )
         session.add(book)
         for username in wanted.requested_by:
             session.add(
@@ -206,6 +216,8 @@ def seed(session: Session, books: dict[str, Audiobook], password: str) -> None:
             asin_or_uuid=book.asin,
             book_title=book.title,
             release_title=release_name(book),
+            # the stand-in qBittorrent reports progress for any hash it's asked about
+            client_id=hashlib.sha1(book.asin.encode()).hexdigest(),
             protocol="torrent",
             created_at=when,
             updated_at=when,

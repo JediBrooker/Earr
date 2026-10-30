@@ -59,6 +59,9 @@ SETTLE_CSS = """
   caret-color: transparent !important;
 }
 .toastify { display: none !important; }
+/* the demo's library folders only exist inside Docker, so the health light would
+   report a problem with the machine taking the screenshots, not with Earr */
+#nav-system-dot { display: none !important; }
 """
 
 
@@ -316,6 +319,8 @@ SHOTS = [
         lambda d: f"/wishlist/sources/{d.sources_asin}",
         wait_for="#sources table tbody tr",
     ),
+    Shot("activity", lambda d: "/activity", wait_for=".queue-item"),
+    Shot("books", lambda d: "/library", wait_for=".library-book"),
     Shot("library", lambda d: "/settings/library", wait_for="#folder-template"),
     Shot(
         "mobile",

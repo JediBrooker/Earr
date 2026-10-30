@@ -22,7 +22,15 @@ It is a fork of [AudioBookRequest](https://github.com/markbeep/AudioBookRequest)
 - **A stricter quality bar:** nothing is downloaded automatically unless it passes your settings, and the Sources page
   shows why each release passes or fails.
 - **Retries:** requests that haven't produced files are searched for again on a schedule.
-- **Clearer search results:** cards show the series, narrators, year and length.
+- **Activity page:** live progress, speed and time left for every download, its history, and a manual import for
+  downloads Earr couldn't match by itself.
+- **Approvals:** approve or decline requests from untrusted users, with the reason sent through your notifications.
+- **System page:** checks Prowlarr, the download clients, Audiobookshelf and your folders, with a health light in the
+  sidebar.
+- **Library page:** browse what's already in your Audiobookshelf library.
+- **Faster Audiobookshelf hand-off:** a new book is added by scanning just its folder, and empty metadata is filled in.
+- **Clearer search results:** cards show the series, narrators, year and length, and whether a book is already
+  requested, downloading or in the library.
 - A Sonarr-style layout, a test suite, and images published to GitHub Container Registry on every push.
 
 ## Screenshots
@@ -63,10 +71,26 @@ It is a fork of [AudioBookRequest](https://github.com/markbeep/AudioBookRequest)
   <tr>
     <td width="50%">
       <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="media/screenshots/activity-dark.png">
+        <img alt="Activity page with download progress" src="media/screenshots/activity-light.png">
+      </picture>
+      <p align="center"><b>Activity</b>: downloads on their way, with live progress</p>
+    </td>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="media/screenshots/books-dark.png">
+        <img alt="Library page" src="media/screenshots/books-light.png">
+      </picture>
+      <p align="center"><b>Library</b>: what's already on the shelf</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <picture>
         <source media="(prefers-color-scheme: dark)" srcset="media/screenshots/library-dark.png">
         <img alt="Library settings with the folder structure preview" src="media/screenshots/library-light.png">
       </picture>
-      <p align="center"><b>Library</b>: folder structure with a live preview</p>
+      <p align="center"><b>Library settings</b>: folder structure with a live preview</p>
     </td>
     <td width="50%" align="center">
       <picture>
@@ -84,16 +108,19 @@ It is a fork of [AudioBookRequest](https://github.com/markbeep/AudioBookRequest)
 
 - Search Audible's catalogue by title, author or narrator, in any of Audible's 11 regions, with suggestions as you type.
 - See the series and position, narrators, release year and length on every result, so you pick the right edition.
-- Request with one click. Books that are already requested, or already in Audiobookshelf, are marked.
+- Request with one click. Every result says whether it's already requested, downloading or in your library.
 - Request books Audible doesn't sell, such as a LibriVox recording, with a manual request.
 - Get recommendations based on what you've requested, see what's popular on your server, and browse what's trending.
-- Follow your requests on the wishlist: requested, grabbed, in the library or failed.
+- Follow your requests on the wishlist, and watch them download on the Activity page.
+- Browse everything already in your library on the Library page.
 - Use it on your phone, in a light or dark theme, or add it to your home screen like an app. Pages are rendered on the
   server, so it stays quick on a slow connection.
 
 **For the admin**
 
 - Three groups keep it simple: untrusted users' requests wait for you, trusted users' requests download straight away.
+- Approve or decline what untrusted users ask for. An approved request downloads like a trusted user's; a declined
+  one tells the requester why through your notifications.
 - Prowlarr searches all your indexers and sends grabs to the download clients you already use, torrent or usenet.
 - Automatic downloads only take a release that clears your quality bar: a bitrate range for each format, a minimum
   number of seeders, and a title or author match. If nothing clears it, nothing is grabbed.
@@ -101,7 +128,12 @@ It is a fork of [AudioBookRequest](https://github.com/markbeep/AudioBookRequest)
 - Requests that haven't produced files are searched for again on a schedule, up to a number of attempts you set.
 - Finished downloads are filed into your library: hardlinked so torrents keep seeding, or copied or moved.
 - qBittorrent and SABnzbd integration finds exactly where a grab landed, and can move it into a category.
-- Audiobookshelf integration marks books you already own and rescans the library after a download.
+- The Activity page shows each download's progress, speed and time left, the history of past downloads, and a manual
+  import for downloads Earr couldn't match by itself.
+- The System page checks every connection and folder, including whether hardlinks can work, and a light in the
+  sidebar turns amber or red when something needs attention.
+- Audiobookshelf integration marks books you already own, adds each new book by scanning just its folder, and fills
+  in metadata it's missing.
 - Notifications to any webhook: Apprise, Gotify, Discord, ntfy and so on.
 - Forms login, HTTP basic auth or OpenID Connect, plus API keys for scripts.
 - SQLite out of the box, or Postgres.
@@ -163,12 +195,24 @@ docker compose up -d
 
 | Group | Can |
 | --- | --- |
-| Untrusted | Search, request books and follow their requests. Their requests wait until an admin starts a download. |
+| Untrusted | Search, request books and follow their requests. Their requests wait until an admin approves them or starts a download. |
 | Trusted | The same, but their requests download automatically when **Auto Download** is on, and they can start an automatic download from the wishlist. |
-| Admin | Everything: the Sources page, marking books as downloaded, users and settings. |
+| Admin | Everything: approving and declining requests, the Sources page, marking books as downloaded, users and settings. |
 
 Create accounts under `Settings > Users`. The root admin is the account made on first start. Set
 `EARR_APP__INIT_ROOT_USERNAME` and `EARR_APP__INIT_ROOT_PASSWORD` to create it without the setup page.
+
+#### Approving requests
+
+A request that only untrusted users made is marked **awaiting approval** on the wishlist. An admin can:
+
+- **Approve** it. It then counts as a trusted user's request: it downloads straight away when **Auto Download** is on,
+  and is searched for again later if nothing clears the bar yet. Earr sends `onRequestApproved`.
+- **Decline** it, with an optional reason. The request is removed for everyone who asked, and `onRequestDeclined` is
+  sent with the reason in `{declineReason}`, so whoever asked can be told why.
+
+Both work over the API too: `POST /api/requests/{asin_or_uuid}/approve`, and
+`POST /api/requests/{asin_or_uuid}/decline` with `{"reason": "..."}`.
 
 ### Prowlarr and automatic downloads
 
@@ -294,7 +338,25 @@ missing. Manual requests never have a series.
 
 A download is only organized once it has stopped changing and has no partial files left. **Recent downloads** at the
 bottom of the page shows each grab: waiting, organized, failed, or not found when it never showed up within 14 days.
-To organize one by hand, for example after the client renamed it beyond recognition, call the API:
+The Activity page follows them more closely, see [Following downloads](#following-downloads).
+
+### Following downloads
+
+**Activity** in the sidebar has three tabs:
+
+- **Queue**: every grab on its way to the library. With qBittorrent or SABnzbd set up it shows progress, size, speed
+  and time left, refreshed every few seconds. Without one, each grab waits for its files to appear in the completed
+  downloads folder. Earr keeps track of grabs while library organizing is on, so the queue stays empty when it's off.
+- **History**: downloads that reached the library, failed, or never showed up.
+- **Manual import** (admins only): folders in the completed downloads folders that haven't been imported, usually
+  because the download client renamed them. Earr preselects the request each one most likely belongs to. **Import**
+  files it into the library like any other download, marks the book as in the library and sends
+  `onSuccessfulDownload`.
+
+Anyone who isn't an admin sees only the downloads for books they asked for. The number next to Activity in the sidebar
+is how many downloads are still on their way.
+
+The same import works over the API:
 
 ```bash
 curl -X POST http://localhost:8000/api/library/import \
@@ -315,8 +377,28 @@ downloads folders: give it as an absolute path, or relative to those folders.
 3. Turn on **Use ABS to mark existing books as downloaded** to have search results show books you already own.
 
 Earr matches books by ASIN, or by title and first author when the ASIN is missing, so a book with sparse metadata in
-Audiobookshelf can be missed. After a download starts, and when a book is marked as downloaded, Earr asks
-Audiobookshelf to scan the library so new books show up sooner.
+Audiobookshelf can be missed.
+
+When Earr files a book into the library, it tells Audiobookshelf about that one new folder instead of scanning the
+whole library, waits for the book to appear, and fills in whichever of the subtitle, narrators, series, ASIN and year
+Audiobookshelf left empty. Anything already set, including your own edits, is left alone. This needs Audiobookshelf
+2.5 or later with its folder watcher on, and the library folder mounted at the same path in both containers; otherwise
+Earr falls back to scanning the whole library. Starting a download, or marking a book as downloaded by hand, still
+asks for a full scan while **Use ABS to mark existing books as downloaded** is on.
+
+**Library** in the sidebar shows everything in the selected Audiobookshelf library, newest first, with a search box,
+and opens a book in Audiobookshelf when you click it. Covers are fetched through Earr, so your browser never needs to
+reach Audiobookshelf directly. Without Audiobookshelf connected, the page lists the books Earr itself has placed in
+the library.
+
+### System status
+
+**System** in the sidebar (admins only) checks everything Earr depends on: whether Prowlarr answers and has indexers
+enabled, whether each download client and Audiobookshelf can be reached with the details you entered, whether the
+library folders exist and can be written to, and whether hardlinks can work between them. It also flags downloads
+that have waited more than a day and requests that failed. Each problem links to the page that fixes it, and the dot
+next to System turns amber or red when something needs attention. Results are reused for a minute; **Check again**
+runs the checks straight away.
 
 ### Notifications
 
@@ -340,6 +422,8 @@ Events:
 | `onGrabbed` | A source was sent to the download client. |
 | `onSuccessfulDownload` | The files are in the library. With the library organizer on, this waits until they have been placed; otherwise it fires right after the grab. Also sent when an admin marks a book as downloaded. |
 | `onFailedDownload` | Prowlarr could not start the download. |
+| `onRequestApproved` | An admin approved a request from someone whose requests need approval. |
+| `onRequestDeclined` | An admin declined a request. `{declineReason}` holds the reason they gave. |
 
 <!-- END GENERATED: notification-events -->
 
@@ -349,6 +433,7 @@ Variables you can use in the body. Not every event has every variable; one that 
 
 | Variable | Value |
 | --- | --- |
+| `{declineReason}` | The reason an admin gave for declining a request |
 | `{eventType}` | Name of the event, e.g. onNewRequest |
 | `{eventUser}` | First user who requested the book |
 | `{eventUserExtraData}` | That user's extra data, set under Settings > Users |
@@ -487,7 +572,7 @@ Parts of this README are generated, so they can't drift from the code:
   environment variables and their docstrings in `app/internal/env_settings.py`, the folder structure placeholders and
   examples, and the notification events and variables. Edit the code, not the table.
 - The screenshots and `media/feature.png` are taken from a demo instance with books from Audible and a stand-in
-  Prowlarr. The feature graphic's layout lives in `media/brand/feature.html`. `media/logo.png` is rendered from the
+  Prowlarr and qBittorrent. The feature graphic's layout lives in `media/brand/feature.html`. `media/logo.png` is rendered from the
   app's own icon, `static/favicon.svg`, which `just icons` draws from `scripts/icons.py` along with every other icon
   size.
 

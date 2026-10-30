@@ -1,9 +1,13 @@
-"""A stand-in for Prowlarr, so the Sources page can be captured without real indexers.
+"""A stand-in for Prowlarr and qBittorrent, so pages can be captured without real services.
 
 Every search answers with the same spread of made-up releases for the book whose
 title matches the query: a few that clear the default download settings, and
 one each that fails on bitrate, seeders and title match. Sizes are worked out
 from the bitrate and the book's runtime, which is how Earr estimates bitrate.
+
+As qBittorrent it reports every torrent it is asked about as part way through,
+with progress derived from the hash so the Activity screenshot is the same on
+every run.
 """
 
 import asyncio
@@ -28,6 +32,24 @@ INDEXERS = [
     {"id": 3, "name": "NZBgeek", "enable": True, "privacy": "private"},
 ]
 _INDEXER_NAMES = {i["id"]: i["name"] for i in INDEXERS}
+
+
+def torrent(info_hash: str) -> dict[str, object]:
+    """A downloading torrent, as qBittorrent's /api/v2/torrents/info describes it."""
+    seed = int(info_hash[:4], 16)
+    size = 350_000_000 + (seed % 400) * 1_000_000
+    progress = round(0.18 + (seed % 70) / 100, 2)
+    speed = 380_000 + (seed % 9) * 95_000
+    return {
+        "hash": info_hash,
+        "name": info_hash,
+        "state": "downloading",
+        "progress": progress,
+        "size": size,
+        "dlspeed": speed,
+        "eta": int(size * (1 - progress) / speed),
+        "content_path": f"/data/torrents/audiobooks/{info_hash}",
+    }
 
 
 def _dotted(text: str) -> str:
@@ -113,7 +135,7 @@ def releases(book: StubBook) -> list[dict[str, object]]:
 
 
 class ProwlarrStub:
-    """Serves the two Prowlarr endpoints Earr uses, from a background thread."""
+    """Serves the Prowlarr and qBittorrent endpoints Earr uses, from a background thread."""
 
     def __init__(self, port: int, books: list[StubBook]):
         self.port: int = port
@@ -136,10 +158,23 @@ class ProwlarrStub:
     async def _indexers(self, _: web.Request) -> web.Response:
         return web.json_response(INDEXERS)
 
+    async def _torrents(self, request: web.Request) -> web.Response:
+        hashes = [h for h in request.query.get("hashes", "").split("|") if h]
+        return web.json_response([torrent(h) for h in hashes])
+
+    async def _qbit_version(self, _: web.Request) -> web.Response:
+        return web.Response(text="v5.0.2")
+
+    async def _qbit_categories(self, _: web.Request) -> web.Response:
+        return web.json_response({"audiobooks": {"name": "audiobooks"}})
+
     async def _serve(self) -> web.AppRunner:
         app = web.Application()
         _ = app.router.add_route("*", "/api/v1/search", self._search)
         _ = app.router.add_get("/api/v1/indexer", self._indexers)
+        _ = app.router.add_get("/api/v2/torrents/info", self._torrents)
+        _ = app.router.add_get("/api/v2/app/version", self._qbit_version)
+        _ = app.router.add_get("/api/v2/torrents/categories", self._qbit_categories)
         runner = web.AppRunner(app)
         await runner.setup()
         await web.TCPSite(runner, "127.0.0.1", self.port).start()
